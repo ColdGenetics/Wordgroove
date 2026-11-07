@@ -1,4 +1,4 @@
-WORDGROVE 3.0 — ANDROID PWA
+WORDGROVE 3.1 — ANDROID PWA
 
 WHAT'S NEW
 - Real crossword-style intersecting word layouts.
@@ -16,7 +16,7 @@ INSTALL / UPDATE
 1. Upload the CONTENTS of this folder to the root of your existing public GitHub repository, overwriting files with the same names. Keep the existing GitHub workflow and README.md.
 2. Commit the changes.
 3. Wait for the GitHub Pages workflow to show a green success check.
-4. Close Wordgrove on the phone and reopen it while online. The service worker cache is now wordgrove-v4. If the old version remains, reload in Chrome, close the app, and reopen it.
+4. Close Wordgrove on the phone and reopen it while online. The service worker cache is now wordgrove-v5. If the old version remains, reload in Chrome, close the app, and reopen it.
 5. Version 4 uses a new local save key because the opening and fifth puzzles were reordered to make the 4-tile introduction work. It starts with 50 coins at Level 1.
 
 GAME ECONOMY
@@ -32,3 +32,25 @@ DEFINITIONS AND OFFLINE USE
 
 HOSTING
 Wordgrove is an installable Progressive Web App (PWA), not a native APK. GitHub Pages serves it over HTTPS.
+
+
+WORDGROVE 3.1 UPDATE
+- Redesigned translucent meadow interface with square crossword cells and no puzzle frame.
+- Removed the top title/progress bar and Clear button; moved Words, Bonus words, Hints, and Shuffle around the wheel.
+- Added stage selection in groups of 25 levels, a game menu, and sound settings.
+- Definition hints no longer reveal the answer word; solved words are rejected with a clear message.
+- Single-letter hints now ask the player to tap the exact crossword square to reveal.
+- Bonus-word definitions use the same online lookup and local cache as puzzle words.
+- Music pauses when the app is hidden or backgrounded and resumes when it returns.
+- Stage-specific colour atmospheres are applied; stage audio themes can be expanded in a later pass.
+
+
+WORDGROVE 3.1 UPDATE
+- Redesigned translucent meadow interface with square crossword cells and no puzzle frame.
+- Removed the top title/progress bar and Clear button; moved Words, Bonus words, Hints, and Shuffle around the wheel.
+- Added stage selection in groups of 25 levels, a game menu, and sound settings.
+- Definition hints no longer reveal the answer word; solved words are rejected with a clear message.
+- Single-letter hints now ask the player to tap the exact crossword square to reveal.
+- Bonus-word definitions use the same online lookup and local cache as puzzle words.
+- Music pauses when the app is hidden or backgrounded and resumes when it returns.
+- Stage-specific colour atmospheres are applied; stage audio themes can be expanded in a later pass.
