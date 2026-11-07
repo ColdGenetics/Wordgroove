@@ -1,4 +1,135 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#102b27"><meta name="description" content="Wordgrove — a relaxing dictionary-based word puzzle game."><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg"><title>Wordgrove</title><style>
-:root{--bg:#102b27;--panel:#183a34;--panel2:#21483f;--gold:#f3c66a;--cream:#fff7e6;--muted:#b7c9bc;--green:#a8d5a2;--shadow:0 12px 35px #06171366}*{box-sizing:border-box}body{margin:0;min-height:100dvh;background:radial-gradient(ellipse at 50% -10%,#315c4d 0%,var(--bg) 56%);color:var(--cream);font-family:ui-rounded,"Trebuchet MS",system-ui,sans-serif;display:flex;justify-content:center}.app{width:min(100%,520px);min-height:100dvh;padding:env(safe-area-inset-top) 18px calc(22px + env(safe-area-inset-bottom));display:flex;flex-direction:column}.top{display:flex;align-items:center;justify-content:space-between;padding:15px 2px 12px}.brand{display:flex;align-items:center;gap:10px;font-weight:900;letter-spacing:.4px;font-size:20px}.leaf{width:34px;height:34px;border-radius:12px;background:linear-gradient(145deg,#d9e9a8,#82b987);display:grid;place-items:center;color:#174333;font-size:20px;box-shadow:0 4px 12px #06171355}.iconbtn{border:1px solid #ffffff25;background:#ffffff0b;color:var(--cream);border-radius:13px;width:42px;height:42px;font-size:19px}.levelbar{display:flex;align-items:center;justify-content:space-between;margin:8px 0 16px;color:var(--muted);font-size:13px}.levelname{color:var(--gold);font-weight:800;font-size:14px;letter-spacing:1.2px;text-transform:uppercase}.progress{height:6px;background:#ffffff17;border-radius:8px;overflow:hidden;margin-top:8px}.progress>i{display:block;height:100%;background:linear-gradient(90deg,#8dc99a,var(--gold));width:0%;transition:width .25s}.board{background:linear-gradient(145deg,#1b4038,#17352f);border:1px solid #ffffff12;border-radius:25px;padding:18px 14px;box-shadow:var(--shadow);min-height:225px;display:flex;flex-direction:column;justify-content:center;gap:12px}.wordrow{display:flex;justify-content:center;gap:5px;min-height:38px}.cell{width:clamp(25px,7vw,35px);height:36px;border-bottom:2px solid #719184;background:#ffffff09;border-radius:6px 6px 3px 3px;display:grid;place-items:center;font-weight:900;font-size:18px;color:var(--cream);text-transform:uppercase}.wordrow.solved .cell{background:#416d56;border-color:#a8d5a2;color:#fff}.wordrow.solved{animation:pop .25s ease}.wordrow .cell.filled{border-color:var(--gold);color:var(--gold)}@keyframes pop{50%{transform:scale(1.025)}}.status{height:28px;text-align:center;color:var(--gold);font-size:13px;font-weight:700;padding-top:7px}.playarea{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:320px}.wheel{position:relative;width:min(78vw,310px);height:min(78vw,310px);max-height:310px;max-width:310px;margin:10px auto 6px;border-radius:50%;background:radial-gradient(circle,#285447 0%,#1a3c34 64%,#16352e 65%);border:1px solid #ffffff17;box-shadow:inset 0 0 35px #071d18aa,0 10px 28px #06171355}.letter{position:absolute;left:50%;top:50%;width:57px;height:57px;transform:translate(-50%,-50%);border:0;border-radius:50%;background:linear-gradient(145deg,#fff4d8,#e7c987);color:#274438;font-size:25px;font-weight:900;box-shadow:0 5px 0 #a77c3f,0 8px 15px #06171355;touch-action:manipulation}.letter:active{transform:translate(-50%,-46%);box-shadow:0 2px 0 #a77c3f}.letter.used{opacity:.48}.current{height:32px;letter-spacing:8px;font-size:23px;font-weight:900;color:var(--gold);text-transform:uppercase}.actions{display:flex;align-items:center;justify-content:center;gap:12px;margin:12px 0 10px}.action{border:1px solid #ffffff24;background:#ffffff0b;color:var(--cream);border-radius:15px;padding:12px 17px;font-size:14px;font-weight:800}.action.primary{background:linear-gradient(135deg,#f5d58b,#dcae58);color:#263d31;border:0;box-shadow:0 4px 0 #a77c3f}.action:active{transform:translateY(1px)}.bottom{display:flex;justify-content:space-between;color:#8da99a;font-size:11px;padding:10px 4px 0}.toast{position:fixed;top:calc(env(safe-area-inset-top) + 70px);left:50%;transform:translate(-50%,-12px);background:#f3c66a;color:#213a2e;padding:11px 18px;border-radius:13px;font-weight:900;opacity:0;pointer-events:none;transition:.2s;box-shadow:var(--shadow);white-space:nowrap;z-index:5}.toast.show{opacity:1;transform:translate(-50%,0)}.overlay{position:fixed;inset:0;background:#061713bb;display:none;align-items:center;justify-content:center;padding:22px;z-index:4}.overlay.show{display:flex}.modal{width:min(100%,390px);background:#1a3b33;border:1px solid #ffffff24;border-radius:24px;padding:25px;box-shadow:var(--shadow);text-align:center}.modal h2{margin:0 0 8px;color:var(--gold)}.modal p{color:var(--muted);line-height:1.5;font-size:14px}.modal .action{margin-top:10px}.stats{display:flex;justify-content:center;gap:28px;margin:18px 0}.stats strong{display:block;font-size:24px;color:var(--gold)}.stats span{font-size:11px;color:var(--muted)}
-</style></head><body><main class="app"><header class="top"><div class="brand"><span class="leaf">✦</span> WORDGROVE</div><button class="iconbtn" id="help" aria-label="How to play">?</button></header><section><div class="levelbar"><span class="levelname" id="levelname">Meadow · 1</span><span id="count">0 / 0 words</span></div><div class="progress"><i id="progress"></i></div></section><section class="board" id="board" aria-label="Crossword word slots"></section><div class="status" id="status">Find every word using the letters below</div><section class="playarea"><div class="current" id="current"></div><div class="wheel" id="wheel" aria-label="Letter wheel"></div><div class="actions"><button class="action" id="shuffle">⤨ Shuffle</button><button class="action" id="clear">Clear</button><button class="action primary" id="enter">Enter</button></div></section><footer class="bottom"><span>✦ Dictionary word puzzles</span><span id="total">5,000 levels</span></footer></main><div class="toast" id="toast"></div><div class="overlay" id="overlay"><div class="modal" id="modal"></div></div><script src="app.js"></script></body></html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#102b27">
+<meta name="description" content="Wordgrove — swipe letters, solve word puzzles, and grow your word skills.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<title>Wordgrove</title>
+<style>
+:root{--bg:#102b27;--panel:#183a34;--panel2:#21483f;--gold:#f3c66a;--cream:#fff7e6;--muted:#b7c9bc;--green:#a8d5a2;--line:#ffffff20;--shadow:0 12px 35px #06171366}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;height:100%;margin:0;overflow:hidden}
+body{background:radial-gradient(ellipse at 50% -10%,#315c4d 0%,var(--bg) 56%);color:var(--cream);font-family:ui-rounded,"Trebuchet MS",system-ui,sans-serif;overscroll-behavior:none}
+button{font:inherit;cursor:pointer}
+[hidden]{display:none!important}
+.app{width:min(100%,520px);height:100dvh;height:100svh;margin:0 auto;padding:calc(env(safe-area-inset-top) + 8px) 16px calc(env(safe-area-inset-bottom) + 8px);display:flex;flex-direction:column;overflow:hidden;gap:8px}
+.top{height:46px;min-height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 2px}
+.brand{display:flex;align-items:center;gap:9px;font-weight:950;letter-spacing:.8px;font-size:19px}
+.leaf{width:34px;height:34px;border-radius:12px;background:linear-gradient(145deg,#d9e9a8,#82b987);display:grid;place-items:center;color:#174333;font-size:20px;box-shadow:0 4px 12px #06171355}
+.iconbtn{border:1px solid var(--line);background:#ffffff0b;color:var(--cream);border-radius:13px;width:40px;height:40px;font-size:19px;display:grid;place-items:center}
+.coin-pill{display:flex;align-items:center;gap:6px;background:#ffffff10;border:1px solid #f3c66a55;color:var(--gold);border-radius:20px;padding:7px 11px;font-size:13px;font-weight:900}
+.home{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:16px;padding:6px 0}
+.hero{background:linear-gradient(145deg,#1c443a,#17352f);border:1px solid var(--line);border-radius:28px;padding:25px 20px;box-shadow:var(--shadow);text-align:center}
+.hero-kicker{color:var(--green);font-size:11px;font-weight:900;letter-spacing:2px;text-transform:uppercase}
+.hero h1{font-size:clamp(32px,9vw,44px);line-height:1.05;margin:9px 0 7px;letter-spacing:-1px}
+.hero p{color:var(--muted);font-size:14px;margin:0;line-height:1.45}
+.home-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.stat-card{background:#ffffff0c;border:1px solid var(--line);border-radius:18px;padding:14px;text-align:center}
+.stat-card strong{display:block;color:var(--gold);font-size:25px;line-height:1.1}
+.stat-card span{display:block;color:var(--muted);font-size:11px;margin-top:5px;letter-spacing:.7px;text-transform:uppercase}
+.primary{background:linear-gradient(135deg,#f5d58b,#dcae58);color:#263d31;border:0;box-shadow:0 4px 0 #a77c3f}
+.action{border:1px solid var(--line);background:#ffffff0b;color:var(--cream);border-radius:15px;padding:12px 10px;font-size:13px;font-weight:850;min-height:44px}
+.play-btn{width:100%;border-radius:17px;padding:16px;font-size:17px;font-weight:950;letter-spacing:.3px}
+.home-help{background:transparent;border:0;color:var(--muted);padding:8px;font-size:13px}
+.game{flex:1;min-height:0;display:flex;flex-direction:column;gap:5px}
+.game-head{display:flex;align-items:center;justify-content:space-between;min-height:38px}
+.level-info{display:flex;flex-direction:column;gap:1px}
+.levelname{color:var(--gold);font-weight:900;font-size:13px;letter-spacing:1.1px;text-transform:uppercase}
+.level-sub{color:var(--muted);font-size:11px}
+.progress{height:5px;background:#ffffff17;border-radius:8px;overflow:hidden;margin:3px 0 4px}
+.progress>i{display:block;height:100%;background:linear-gradient(90deg,#8dc99a,var(--gold));width:0%;transition:width .25s}
+.board{background:linear-gradient(145deg,#1b4038,#17352f);border:1px solid #ffffff12;border-radius:22px;padding:10px 8px;box-shadow:var(--shadow);display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:minmax(27px,1fr);gap:5px 3px;align-content:center;min-height:95px;max-height:24dvh;overflow:hidden}
+.wordrow{display:flex;justify-content:center;align-items:center;gap:3px;min-width:0}
+.cell{width:clamp(17px,5.4vw,28px);height:clamp(25px,3.7dvh,32px);border-bottom:2px solid #719184;background:#ffffff09;border-radius:5px 5px 3px 3px;display:grid;place-items:center;font-weight:950;font-size:clamp(13px,4vw,17px);color:var(--cream);text-transform:uppercase;flex:0 1 auto}
+.wordrow.solved .cell{background:#416d56;border-color:#a8d5a2;color:#fff}
+.wordrow .cell.filled{border-color:var(--gold);color:var(--gold)}
+.wordrow.long .cell{width:clamp(14px,4.2vw,23px);font-size:clamp(12px,3.4vw,15px);height:clamp(24px,3.5dvh,30px)}
+.status{min-height:23px;height:23px;text-align:center;color:var(--gold);font-size:12px;font-weight:750;padding-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.current{height:27px;min-height:27px;letter-spacing:6px;font-size:21px;font-weight:950;color:var(--gold);text-transform:uppercase;text-align:center}
+.wheel-wrap{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
+.wheel{position:relative;width:min(76vw,30dvh,278px);aspect-ratio:1;flex:none;border-radius:50%;background:radial-gradient(circle,#285447 0%,#1a3c34 64%,#16352e 65%);border:1px solid #ffffff17;box-shadow:inset 0 0 35px #071d18aa,0 10px 28px #06171355;touch-action:none;user-select:none}
+.letter{position:absolute;left:50%;top:50%;width:clamp(43px,12vw,52px);height:clamp(43px,12vw,52px);transform:translate(-50%,-50%);border:0;border-radius:50%;background:linear-gradient(145deg,#fff4d8,#e7c987);color:#274438;font-size:22px;font-weight:950;box-shadow:0 4px 0 #a77c3f,0 8px 15px #06171355;touch-action:none;user-select:none;display:grid;place-items:center;padding:0}
+.letter.selected{background:linear-gradient(145deg,#d9e9a8,#8fc69a);color:#17382d;box-shadow:0 4px 0 #507d59,0 8px 15px #06171355;transform:translate(-50%,-50%) scale(1.06)}
+.actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin:0 0 2px}
+.actions .action{padding:9px 4px;font-size:12px;min-height:42px}
+.bottom{display:flex;justify-content:space-between;color:#8da99a;font-size:10px;padding:1px 3px 0;min-height:14px}
+.toast{position:fixed;top:calc(env(safe-area-inset-top) + 58px);left:50%;transform:translate(-50%,-12px);background:#f3c66a;color:#213a2e;padding:10px 15px;border-radius:13px;font-weight:900;font-size:13px;opacity:0;pointer-events:none;transition:.2s;box-shadow:var(--shadow);white-space:nowrap;z-index:8;max-width:90vw;overflow:hidden;text-overflow:ellipsis}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.overlay{position:fixed;inset:0;background:#061713c9;display:none;align-items:center;justify-content:center;padding:22px;z-index:7}
+.overlay.show{display:flex}
+.modal{width:min(100%,390px);background:#1a3b33;border:1px solid #ffffff24;border-radius:24px;padding:23px;box-shadow:var(--shadow);text-align:center}
+.modal h2{margin:0 0 8px;color:var(--gold);font-size:25px}
+.modal p{color:var(--muted);line-height:1.5;font-size:14px;margin:8px 0}
+.modal .action{margin-top:10px;min-width:130px}
+.modal .stats{display:flex;justify-content:center;gap:28px;margin:18px 0}
+.modal .stats strong{display:block;font-size:24px;color:var(--gold)}
+.modal .stats span{font-size:10px;color:var(--muted);letter-spacing:.5px}
+@media(max-height:740px){.app{gap:5px;padding-top:calc(env(safe-area-inset-top) + 4px);padding-bottom:calc(env(safe-area-inset-bottom) + 4px)}.top{height:40px;min-height:40px}.leaf{width:30px;height:30px}.board{max-height:22dvh;padding:7px}.hero{padding:18px}.home{gap:11px}.wheel{width:min(70vw,27dvh,245px)}.current{height:23px;min-height:23px}.status{height:19px;min-height:19px}}
+
+.audio-controls{display:flex;gap:5px;align-items:center}.audio-btn{width:auto;min-width:42px;padding:0 8px;font-size:10px;white-space:nowrap;color:var(--muted)}
+.home-stats{grid-template-columns:repeat(3,minmax(0,1fr))}.stat-card{padding:12px 5px}.stat-card strong{font-size:22px}
+.board.crossword{display:grid;grid-template-columns:repeat(var(--cw,7),minmax(0,1fr));grid-template-rows:repeat(var(--ch,7),minmax(0,1fr));gap:3px;padding:9px;min-height:110px;height:min(31dvh,290px);max-height:31dvh;align-content:stretch;justify-content:stretch;overflow:hidden;}
+.cross-cell{min-width:0;min-height:0;border:1px solid #ffffff22;border-radius:5px;background:linear-gradient(145deg,#f1d89f,#d5b778);color:#203c30;font-size:clamp(11px,3.2vw,19px);font-weight:950;text-transform:uppercase;display:grid;place-items:center;padding:0;box-shadow:0 2px 0 #9f804a;touch-action:manipulation}
+.cross-cell.cross-solved{background:linear-gradient(145deg,#9fcca0,#6eaa82);border-color:#d6f0ce;color:#12382d}
+.cross-cell.cross-revealed{background:linear-gradient(145deg,#f4d78b,#e7b95f);border-color:#fff0bd;color:#3c351d}
+.cross-cell.cross-selected{outline:2px solid var(--gold);outline-offset:1px;z-index:1}
+.selected-clue{height:18px;min-height:18px;text-align:center;color:#d5dfc7;font-size:11px;font-weight:750;letter-spacing:.3px}
+.actions{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:0 0 1px}.actions .action{min-height:37px;padding:7px 3px;font-size:11px}
+.word-list{max-height:48vh;overflow:auto;text-align:left;margin:12px 0;padding-right:3px}.word-definition{display:flex;flex-direction:column;gap:3px;padding:10px 2px;border-bottom:1px solid #ffffff20}.word-definition strong{color:var(--gold);font-size:14px;letter-spacing:.7px}.word-definition span{font-size:12px;color:var(--cream);line-height:1.4}.modal-body{color:var(--cream);font-size:14px;line-height:1.5;margin:10px 0}.hint-options{display:grid;gap:8px}.hint-options .action{width:100%;text-align:left}
+@media(max-height:740px){.board.crossword{height:26dvh;max-height:26dvh;min-height:90px;padding:6px;gap:2px}.cross-cell{font-size:clamp(10px,2.8vw,16px)}.selected-clue{height:16px;min-height:16px}.actions .action{min-height:34px}.audio-btn{font-size:9px;padding:0 5px}}
+
+</style>
+</head>
+<body>
+<main class="app">
+  <header class="top">
+    <div class="brand"><span class="leaf">✦</span> WORDGROVE</div>
+    <div class="audio-controls"><button class="iconbtn audio-btn" id="musicBtn" aria-label="Toggle background music">♫ Off</button><button class="iconbtn audio-btn" id="soundBtn" aria-label="Toggle nature sounds">Nature sounds: On</button></div>
+  </header>
+
+  <section class="home" id="homeScreen">
+    <div class="hero">
+      <div class="hero-kicker">A little word adventure</div>
+      <h1>Wordgrove</h1>
+      <p>Swipe letters, discover words, and watch your vocabulary grow.</p>
+    </div>
+    <div class="home-stats">
+      <div class="stat-card"><strong id="homeLevel">1</strong><span>Current level</span></div>
+      <div class="stat-card"><strong id="homeCoins">50</strong><span>Coins</span></div>
+      <div class="stat-card"><strong id="homeWords">0</strong><span>Words found</span></div>
+    </div>
+    <button class="action primary play-btn" id="playBtn">▶ &nbsp; Play</button>
+    <button class="home-help" id="homeHelp">How to play · Coins · Hints</button>
+  </section>
+
+  <section class="game" id="gameScreen" hidden>
+    <div class="game-head">
+      <button class="iconbtn" id="homeBtn" aria-label="Main menu">⌂</button>
+      <div class="level-info"><span class="levelname" id="levelname">Meadow · 1</span><span class="level-sub" id="levelsub">Find all the words</span></div>
+      <div class="coin-pill"><span>●</span><span id="gameCoins">50</span></div>
+    </div>
+    <div class="progress"><i id="progress"></i></div>
+    <section class="board crossword" id="board" aria-label="Crossword puzzle"></section>
+    <div class="selected-clue" id="selectedClue">Select a word</div>
+    <div class="status" id="status" aria-live="polite">Swipe letters to make a word</div>
+    <div class="current" id="current" aria-live="polite"></div>
+    <div class="wheel-wrap"><div class="wheel" id="wheel" aria-label="Letter wheel"></div></div>
+    <div class="actions">
+      <button class="action" id="wordListBtn">▤ Words</button>
+      <button class="action" id="extrasBtn">✧ Extras</button>
+      <button class="action" id="hint">✦ Hints</button>
+      <button class="action" id="shuffle">⤨ Shuffle</button>
+      <button class="action" id="clear">Clear</button>
+      <button class="action primary" id="enter">Enter</button>
+    </div>
+    <footer class="bottom"><span>Swipe or tap letters</span><span id="count">0 / 0 words</span></footer>
+  </section>
+</main>
+<div class="toast" id="toast"></div>
+<div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
+<script src="app.js"></script>
+</body>
+</html>

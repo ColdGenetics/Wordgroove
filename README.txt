@@ -1,25 +1,34 @@
-WORDGROVE — ANDROID INSTALL PACKAGE
+WORDGROVE 3.0 — ANDROID PWA
 
-WHAT THIS IS
-Wordgrove is an installable Progressive Web App (PWA), not a native APK. It is designed for portrait play on Android phones, including the Google Pixel 7 Pro. It contains 5,000 generated levels. The answer words are selected from the CMU Pronouncing Dictionary (an English pronunciation lexicon), with a small exclusion list for obvious abbreviations and internet shorthand. This is a broad lexicon, so a few uncommon or regional dictionary entries may appear.
+WHAT'S NEW
+- Real crossword-style intersecting word layouts.
+- Swipe continuously across wheel tiles to form puzzle words; repeated letters have the required number of tiles.
+- The letter wheel starts with 4 tiles at Level 1, grows to 5 tiles at Level 2, 6 tiles at Level 941, and 7 tiles at Level 2,809. Maximum answer length is seven letters; every crossword answer remains spellable from its wheel, which can also include bonus letters.
+- Three hint types: reveal one letter (25 coins), show the selected word's definition (15 coins), or reveal two random letters (40 coins). Tap a crossword square to select a word before using a definition hint.
+- Words list: solved puzzle words with definitions. Definitions are bundled for the opening level and can be fetched from the free Dictionary API for other words when online, then cached on the device.
+- Extra words list: valid English words not in the current crossword earn 1 coin for 2 letters, 2 for 3, 3 for 4, 4 for 5, and 5 for 6–7 letters.
+- Ambient original synthesized background music and gentle nature-inspired sound effects. Music and sound effects have separate controls. Browsers require a tap before audio can begin.
+- Main menu shows current level, coin balance, and total puzzle words solved.
+- Portrait layout is designed to fit the phone screen without page scrolling.
+- 5,000 levels, with common short words early and longer words later.
 
-INSTALL ON A PIXEL 7 PRO
-A PWA must be served from a secure HTTPS website before Chrome can install it and cache it for offline play. Opening index.html directly from the ZIP is not enough to enable installation/offline support.
+INSTALL / UPDATE
+1. Upload the CONTENTS of this folder to the root of your existing public GitHub repository, overwriting files with the same names. Keep the existing GitHub workflow and README.md.
+2. Commit the changes.
+3. Wait for the GitHub Pages workflow to show a green success check.
+4. Close Wordgrove on the phone and reopen it while online. The service worker cache is now wordgrove-v4. If the old version remains, reload in Chrome, close the app, and reopen it.
+5. Version 4 uses a new local save key because the opening and fifth puzzles were reordered to make the 4-tile introduction work. It starts with 50 coins at Level 1.
 
-Simple hosting option (GitHub Pages):
-1. Extract this ZIP on a computer.
-2. Create a new public GitHub repository, for example "wordgrove".
-3. Upload the CONTENTS of the wordgrove folder (index.html, app.js, levels.json, manifest.webmanifest, sw.js, icon.svg, dictionary.json, README.txt) to the repository's root.
-4. In the repository, open Settings → Pages.
-5. Under Build and deployment, choose "Deploy from a branch", select the main branch and /(root), then Save.
-6. Wait for GitHub Pages to publish the site. Open the published HTTPS address in Chrome on your Pixel.
-7. In Chrome, open the three-dot menu and choose "Install app" or "Add to Home screen" (wording can vary), then confirm.
-8. Launch Wordgrove from the new home-screen icon. After the first successful load, the game assets are cached for offline use.
+GAME ECONOMY
+- Correct crossword answer: +5 coins.
+- Completed level: +20 coins.
+- Extra words: 1–5 coins depending on length.
+- Single-letter hint: 25 coins. Definition hint: 15 coins. Two-letter reveal: 40 coins.
 
-GAMEPLAY
-Tap letters around the wheel to spell a word, then press Enter. Clear removes the current selection; Shuffle rearranges the wheel. Find all displayed words to complete a level. Progress is stored in the browser on that device.
+DEFINITIONS AND OFFLINE USE
+- Definitions for the first level are bundled. Other definitions are fetched from dictionaryapi.dev while online and cached locally after retrieval. A definition not previously cached may not be available offline.
+- Puzzle play, progress, coin balances, and cached definitions are stored locally.
+- Audio is synthesized in the browser; no music files or copyrighted recordings are included.
 
-NOTES
-- This ZIP is a PWA website bundle, not an APK. No Android app signing/build step is required for PWA installation.
-- Progress is stored locally in Chrome. Clearing site data or uninstalling/clearing browser storage can erase progress.
-- The dictionary is bundled locally; gameplay does not need a network connection after the first successful load and cache.
+HOSTING
+Wordgrove is an installable Progressive Web App (PWA), not a native APK. GitHub Pages serves it over HTTPS.
