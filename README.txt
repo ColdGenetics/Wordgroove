@@ -1,8 +1,4 @@
-WORDGROVE 3.4 — ANDROID PWA
-
-WHAT’S NEW IN 3.4
-- Added a subtle Wordgrove v3.4 label at the bottom of modal windows.
-- Updated the service-worker cache version to wordgrove-v8.
+WORDGROVE 3.3 — ANDROID PWA
 
 WHAT'S NEW IN 3.3
 - More reliable initial crossword and letter-wheel rendering after screen layout is ready.
