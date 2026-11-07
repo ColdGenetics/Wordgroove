@@ -1,3 +1,15 @@
+WORDGROVE 3.4 — ANDROID PWA
+
+WHAT’S NEW IN 3.4
+- Added a subtle Wordgrove v3.4 label at the bottom of modal windows.
+- Updated the service-worker cache version to wordgrove-v8.
+
+WHAT'S NEW IN 3.3
+- More reliable initial crossword and letter-wheel rendering after screen layout is ready.
+- Letter selection is cleared after every completed or cancelled pointer gesture.
+- Level completion is checked once all crossword answers are solved.
+- Level transition screen summarizes points gained and bonus words found.
+
 WORDGROVE 3.1 — ANDROID PWA
 
 WHAT'S NEW

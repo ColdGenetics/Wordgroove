@@ -1,4 +1,4 @@
-const CACHE = 'wordgrove-v6';
+const CACHE = 'wordgrove-v8';
 const FILES = ['./','./index.html','./app.js','./levels.json','./dictionary.json','./definitions.json','./manifest.webmanifest','./icon.svg','./meadow.svg','./field.svg','./moonlit-forest.svg','./waterfall.svg','./autumn-grove.svg','./crystal-lake.svg','./misty-highlands.svg','./sunset-valley.svg'];
 self.addEventListener('install', event => {
   self.skipWaiting();
