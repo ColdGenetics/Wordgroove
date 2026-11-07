@@ -16,7 +16,7 @@ INSTALL / UPDATE
 1. Upload the CONTENTS of this folder to the root of your existing public GitHub repository, overwriting files with the same names. Keep the existing GitHub workflow and README.md.
 2. Commit the changes.
 3. Wait for the GitHub Pages workflow to show a green success check.
-4. Close Wordgrove on the phone and reopen it while online. The service worker cache is now wordgrove-v5. If the old version remains, reload in Chrome, close the app, and reopen it.
+4. Close Wordgrove on the phone and reopen it while online. The service worker cache is now wordgrove-v6. If the old version remains, reload in Chrome, close the app, and reopen it.
 5. Version 4 uses a new local save key because the opening and fifth puzzles were reordered to make the 4-tile introduction work. It starts with 50 coins at Level 1.
 
 GAME ECONOMY
@@ -54,3 +54,5 @@ WORDGROVE 3.1 UPDATE
 - Bonus-word definitions use the same online lookup and local cache as puzzle words.
 - Music pauses when the app is hidden or backgrounded and resumes when it returns.
 - Stage-specific colour atmospheres are applied; stage audio themes can be expanded in a later pass.
+
+Wordgrove 3.2: stage SVG backgrounds are stored beside index.html so they can be uploaded individually using the GitHub mobile app.

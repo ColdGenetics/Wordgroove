@@ -1,5 +1,5 @@
-const CACHE = 'wordgrove-v5';
-const FILES = ['./','./index.html','./app.js','./levels.json','./dictionary.json','./definitions.json','./manifest.webmanifest','./icon.svg','./backgrounds/meadow.svg','./backgrounds/field.svg','./backgrounds/moonlit-forest.svg','./backgrounds/waterfall.svg','./backgrounds/autumn-grove.svg','./backgrounds/crystal-lake.svg','./backgrounds/misty-highlands.svg','./backgrounds/sunset-valley.svg'];
+const CACHE = 'wordgrove-v6';
+const FILES = ['./','./index.html','./app.js','./levels.json','./dictionary.json','./definitions.json','./manifest.webmanifest','./icon.svg','./meadow.svg','./field.svg','./moonlit-forest.svg','./waterfall.svg','./autumn-grove.svg','./crystal-lake.svg','./misty-highlands.svg','./sunset-valley.svg'];
 self.addEventListener('install', event => {
   self.skipWaiting();
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(FILES)));
