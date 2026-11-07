@@ -220,6 +220,22 @@ body.in-game .top{display:none}
 @media(max-height:740px){.game-head{flex-basis:34px;min-height:34px}.board.crossword{max-height:32dvh}.current{flex-basis:25px;height:25px;min-height:25px}.wheel-wrap{flex-basis:24dvh;min-height:120px}.wheel{width:min(56vw,22dvh,190px)}.actions .action{min-height:36px;padding:7px 4px}}
 @media(max-height:620px){.board.crossword{max-height:27dvh}.wheel-wrap{flex-basis:21dvh;min-height:100px}.wheel{width:min(48vw,19dvh,160px)}.actions .action{min-height:32px}}
 
+
+/* Wordgrove 3.3 — dependable first paint and level-complete interstitial */
+#board.crossword{visibility:visible!important;opacity:1!important}
+#wheel{visibility:visible!important;opacity:1!important}
+.cross-cell{font-weight:1000!important}
+.level-finish{text-align:center;padding:5px 0}
+.finish-leaf{font-size:34px;color:var(--gold);text-shadow:0 0 18px #e7f4b2aa}
+.level-finish h2{margin:8px 0;color:#fff4cf}
+.level-finish p{color:#e8efdf;font-size:13px;line-height:1.45}
+.level-finish .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:18px 0 10px}
+.level-finish .stats>div{padding:14px 8px;border-radius:15px;background:#ffffff18;border:1px solid #ffffff30}
+.level-finish .stats strong{display:block;font-size:25px;color:var(--gold)}
+.level-finish .stats span{display:block;font-size:10px;letter-spacing:1px;font-weight:900;margin-top:4px}
+.level-finish .finish-detail{font-size:11px;opacity:.85}
+.level-finish #next{width:100%;margin-top:10px}
+.app-version{margin-top:12px;text-align:center;font-size:10px;letter-spacing:.08em;color:#e8efdf;opacity:.48;font-weight:500}
 </style>
 </head>
 <body>
