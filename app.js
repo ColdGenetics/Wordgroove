@@ -1,4 +1,4 @@
-const APP_VERSION = '3.5.5';
+const APP_VERSION = '3.5.6';
 const $ = id => document.getElementById(id);
 const SAVE_KEY = 'wordgrove-v4-save';
 const LETTER_HINT_COST = 25, DEFINITION_HINT_COST = 15, DOUBLE_HINT_COST = 40;
@@ -205,7 +205,31 @@ function updateCurrent(){$('current').textContent=currentWord().toUpperCase();[.
 function clearSelection(){picked=[];updateCurrent()}
 function coinRewardForExtra(word){return word.length<=2?1:word.length===3?2:word.length===4?3:word.length===5?4:5}
 function canMakeFromRack(word){const available={};for(const c of rack)available[c]=(available[c]||0)+1;for(const c of word){if(!available[c])return false;available[c]--}return true}
-function submit(){
+async function lookupEnglishWord(word){
+ const key=String(word).toLowerCase();
+ if(dictionary.has(key) || TWO_LETTER_WORDS.has(key)) return true;
+ try{
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),6000);
+  const r=await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(key)}`,{signal:controller.signal});
+  clearTimeout(timer);
+  if(!r.ok) return false;
+  const data=await r.json();
+  if(Array.isArray(data) && data.length && data[0].meanings){
+   dictionary.add(key);
+   try{
+    const extra=JSON.parse(localStorage.getItem('wordgrove-extra-words')||'[]');
+    if(!extra.includes(key)){
+     extra.push(key);
+     localStorage.setItem('wordgrove-extra-words', JSON.stringify(extra));
+    }
+   }catch{}
+   return true;
+  }
+ }catch{}
+ return false;
+}
+async function submit(){
  const w=currentWord().toLowerCase();
  try{
   if(w.length<2){ say('Swipe at least two letters'); return; }
@@ -215,8 +239,13 @@ function submit(){
    solveWord(w,true);
    return;
   }
-  // Bonus words: whitelist 2-letter, otherwise length >= 3 and in dictionary
-  const okBonus = (w.length===2 && TWO_LETTER_WORDS.has(w)) || (w.length>=3 && dictionary.has(w));
+  // Local bonus list first
+  let okBonus = (w.length===2 && TWO_LETTER_WORDS.has(w)) || (w.length>=3 && dictionary.has(w));
+  // If missing locally, try online dictionary (covers gaps like "tan")
+  if(!okBonus && w.length>=3){
+   say('Checking word…');
+   okBonus = await lookupEnglishWord(w);
+  }
   if(okBonus){
    if(extras.has(w)){ say('Already in your extra words list'); return; }
    extras.add(w);
@@ -299,7 +328,7 @@ async function getDefinition(word){
  const key=String(word).toLowerCase();
  if(definitions[key]){
   const v=definitions[key];
-  return Array.isArray(v) ? v.slice(0,2) : [v];
+  return Array.isArray(v) ? v.slice(0,4) : [v];
  }
  try{
   const controller=new AbortController();
@@ -309,19 +338,18 @@ async function getDefinition(word){
   if(!r.ok) throw new Error('No definition');
   const data=await r.json();
   const parts=[];
-  // API returns most common senses first — take first definition per meaning, max 2 total
   for(const entry of data){
    for(const meaning of entry.meanings||[]){
-    const defs=meaning.definitions||[];
-    if(defs.length && defs[0].definition){
-     const line=defs[0].definition;
-     if(!parts.includes(line)) parts.push(line);
-     if(parts.length>=2) break;
+    const pos=meaning.partOfSpeech ? `(${meaning.partOfSpeech}) ` : '';
+    for(const def of meaning.definitions||[]){
+     if(def.definition){
+      const line=pos+def.definition;
+      if(!parts.includes(line)) parts.push(line);
+     }
     }
    }
-   if(parts.length>=2) break;
   }
-  const value=parts.slice(0,2);
+  const value=parts.slice(0,4);
   if(value.length){
    definitions[key]=value;
    try{ localStorage.setItem('wordgrove-definitions', JSON.stringify(definitions)); }catch{}
@@ -371,9 +399,13 @@ async function definitionHint(){
  state.coins-=DEFINITION_HINT_COST;
  updateCoins(); persistLevel();
  playEffect('success');
- const defs=filterSpoilerDefs(w, await getDefinition(w));
- const body=defs.map((d,i)=>`<p class="def-line"><strong>${i+1}.</strong> ${esc(d)}</p>`).join('');
- showModal('Definition hint', body || '<p class="def-line">No definition available.</p>');
+ try{
+  const defs=filterSpoilerDefs(w, await getDefinition(w));
+  const body=(defs||[]).map((d,i)=>`<p class="def-line"><strong>${i+1}.</strong> ${esc(d)}</p>`).join('');
+  showModal('Definition hint', body || '<p class="def-line">No definition available.</p>');
+ }catch(e){
+  showModal('Definition hint', '<p class="def-line">Could not load a definition. Try again while online.</p>');
+ }
 }
 function revealOne(){
  if(!selectedWord){
