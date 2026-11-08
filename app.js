@@ -1,4 +1,4 @@
-const APP_VERSION = '3.5.6';
+const APP_VERSION = '3.5.8';
 const $ = id => document.getElementById(id);
 const SAVE_KEY = 'wordgrove-v4-save';
 const LETTER_HINT_COST = 25, DEFINITION_HINT_COST = 15, DOUBLE_HINT_COST = 40;
@@ -208,25 +208,33 @@ function canMakeFromRack(word){const available={};for(const c of rack)available[
 async function lookupEnglishWord(word){
  const key=String(word).toLowerCase();
  if(dictionary.has(key) || TWO_LETTER_WORDS.has(key)) return true;
+ const remember=()=>{
+  dictionary.add(key);
+  try{
+   const extra=JSON.parse(localStorage.getItem('wordgrove-extra-words')||'[]');
+   if(!extra.includes(key)){ extra.push(key); localStorage.setItem('wordgrove-extra-words', JSON.stringify(extra)); }
+  }catch{}
+ };
  try{
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),6000);
-  const r=await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(key)}`,{signal:controller.signal});
+  const r=await fetch('https://api.dictionaryapi.dev/api/v2/entries/en/'+encodeURIComponent(key),{signal:controller.signal});
   clearTimeout(timer);
-  if(!r.ok) return false;
-  const data=await r.json();
-  if(Array.isArray(data) && data.length && data[0].meanings){
-   dictionary.add(key);
-   try{
-    const extra=JSON.parse(localStorage.getItem('wordgrove-extra-words')||'[]');
-    if(!extra.includes(key)){
-     extra.push(key);
-     localStorage.setItem('wordgrove-extra-words', JSON.stringify(extra));
-    }
-   }catch{}
-   return true;
+  if(r.ok){
+   const data=await r.json();
+   if(Array.isArray(data)&&data.length&&data[0].meanings){ remember(); return true; }
   }
- }catch{}
+ }catch(e){}
+ try{
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),6000);
+  const r=await fetch('https://api.datamuse.com/words?sp='+encodeURIComponent(key)+'&md=d&max=1',{signal:controller.signal});
+  clearTimeout(timer);
+  if(r.ok){
+   const data=await r.json();
+   if(Array.isArray(data)&&data[0]&&data[0].word===key&&Array.isArray(data[0].defs)&&data[0].defs.length){ remember(); return true; }
+  }
+ }catch(e){}
  return false;
 }
 async function submit(){
@@ -331,32 +339,75 @@ async function getDefinition(word){
   return Array.isArray(v) ? v.slice(0,4) : [v];
  }
  try{
+  const cached=JSON.parse(localStorage.getItem('wordgrove-definitions')||'{}');
+  if(cached[key]){
+   const v=cached[key];
+   definitions[key]=v;
+   return Array.isArray(v) ? v.slice(0,4) : [v];
+  }
+ }catch{}
+
+ const save=(parts)=>{
+  if(!parts||!parts.length) return parts;
+  definitions[key]=parts;
+  try{
+   const all=JSON.parse(localStorage.getItem('wordgrove-definitions')||'{}');
+   all[key]=parts;
+   localStorage.setItem('wordgrove-definitions', JSON.stringify(all));
+  }catch{}
+  return parts;
+ };
+
+ // Source 1: Free Dictionary API
+ try{
   const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),9000);
-  const r=await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(key)}`,{signal:controller.signal});
+  const timer=setTimeout(()=>controller.abort(),7000);
+  const r=await fetch('https://api.dictionaryapi.dev/api/v2/entries/en/'+encodeURIComponent(key),{signal:controller.signal});
   clearTimeout(timer);
-  if(!r.ok) throw new Error('No definition');
-  const data=await r.json();
-  const parts=[];
-  for(const entry of data){
-   for(const meaning of entry.meanings||[]){
-    const pos=meaning.partOfSpeech ? `(${meaning.partOfSpeech}) ` : '';
-    for(const def of meaning.definitions||[]){
-     if(def.definition){
-      const line=pos+def.definition;
-      if(!parts.includes(line)) parts.push(line);
+  if(r.ok){
+   const ct=(r.headers.get('content-type')||'');
+   if(!ct || ct.includes('json')){
+    const data=await r.json();
+    if(Array.isArray(data)){
+     const parts=[];
+     for(const entry of data){
+      for(const meaning of entry.meanings||[]){
+       const pos=meaning.partOfSpeech?`(${meaning.partOfSpeech}) `:'';
+       for(const def of meaning.definitions||[]){
+        if(def.definition){
+         const line=pos+def.definition;
+         if(!parts.includes(line)) parts.push(line);
+        }
+       }
+      }
      }
+     if(parts.length) return save(parts.slice(0,4));
     }
    }
   }
-  const value=parts.slice(0,4);
-  if(value.length){
-   definitions[key]=value;
-   try{ localStorage.setItem('wordgrove-definitions', JSON.stringify(definitions)); }catch{}
-   return value;
+ }catch(e){}
+
+ // Source 2: Datamuse (often works when the other API is blocked)
+ try{
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),7000);
+  const r=await fetch('https://api.datamuse.com/words?sp='+encodeURIComponent(key)+'&md=d&max=1',{signal:controller.signal});
+  clearTimeout(timer);
+  if(r.ok){
+   const data=await r.json();
+   if(Array.isArray(data)&&data[0]&&Array.isArray(data[0].defs)){
+    const parts=[];
+    for(const raw of data[0].defs){
+     // format: "n\tdefinition text"
+     const line=String(raw).replace(/^[a-z]+\t/i,'').trim();
+     if(line && !parts.includes(line)) parts.push(line);
+    }
+    if(parts.length) return save(parts.slice(0,4));
+   }
   }
- }catch{}
- return ['Definition is not available offline yet. Connect once to save it for next time.'];
+ }catch(e){}
+
+ return ['Definition could not be loaded right now. Try again in a moment — your connection may be fine, but the dictionary service did not respond.'];
 }
 
 function openWordList(){const words=[...new Set(Object.values(state.solvedByLevel).flatMap(a=>a||[]))].sort();showListModal('Words found',words,'All puzzle words you have solved across your adventure.');}
