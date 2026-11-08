@@ -1,4 +1,22 @@
-WORDGROVE 3.3 — ANDROID PWA
+
+=== Wordgrove 3.4 (fixed) ===
+Root cause of 3.4 menu/UI failure:
+The published 3.4 app.js was incomplete — critical functions from 3.2 were dropped
+(openGameMenu, openLevels, stageForLevel, audio stack, etc.), so event handlers
+threw ReferenceErrors and the main menu appeared dead.
+
+This build restores the full 3.2 surface area and layers the intended 3.4 fixes:
+- Double-rAF + ResizeObserver so wheel/crossword paint on first layout
+- Improved drawWheel size guard (retries until measured)
+- Pointer gesture handlers that reliably clear selection
+- Level-complete transition screen (points + bonus words)
+- APP_VERSION badge in modals
+
+WORDGROVE 3.4 — ANDROID PWA
+
+WHAT’S NEW IN 3.4
+- Added a subtle Wordgrove v3.4 label at the bottom of modal windows.
+- Updated the service-worker cache version to wordgrove-v8.
 
 WHAT'S NEW IN 3.3
 - More reliable initial crossword and letter-wheel rendering after screen layout is ready.
