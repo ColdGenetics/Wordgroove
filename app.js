@@ -1,4 +1,4 @@
-const APP_VERSION = '3.5.2';
+const APP_VERSION = '3.5.4';
 const $ = id => document.getElementById(id);
 const SAVE_KEY = 'wordgrove-v4-save';
 const LETTER_HINT_COST = 25, DEFINITION_HINT_COST = 15, DOUBLE_HINT_COST = 40;
@@ -145,10 +145,10 @@ function selectCrosswordCell(x,y){
   }
   const index=Number(entry.dir==='H' ? x-entry.x : y-entry.y);
   if(solved.has(selectedWord)){ say('That word is already solved'); revealMode=false; renderCrossword(); return; }
-  const have=new Set((revealed[selectedWord]||[]).map(Number));
-  if(have.has(index)){ say('That letter is already revealed'); return; }
+  if(letterVisibleAt(selectedWord, index)){ say('That letter is already revealed'); return; }
   if(state.coins<LETTER_HINT_COST){ say(`You need ${LETTER_HINT_COST} coins`); revealMode=false; renderCrossword(); return; }
   state.coins-=LETTER_HINT_COST;
+  const have=new Set((revealed[selectedWord]||[]).map(Number));
   have.add(index);
   revealed[selectedWord]=[...have];
   revealMode=false;
@@ -343,8 +343,9 @@ async function definitionHint(){
  updateCoins(); persistLevel();
  playEffect('success');
  const defs=await getDefinition(w);
- const body=esc(defs.join(' | '));
- showModal(`Definition · ${w.toUpperCase()}`, body);
+ // Do not show the answer word — only definitions
+ const body=defs.map((d,i)=>`<p class="def-line"><strong>${i+1}.</strong> ${esc(d)}</p>`).join('');
+ showModal('Definition hint', body || '<p class="def-line">No definition available.</p>');
 }
 function revealOne(){
  if(!selectedWord){
@@ -366,22 +367,20 @@ function revealTwo(){
  const unsolved=levels[level].words.filter(w=>!solved.has(w));
  const options=[];
  for(const w of unsolved){
-  const have=new Set((revealed[w]||[]).map(Number));
   for(let i=0;i<w.length;i++){
-   if(!have.has(i)) options.push({w,i});
+   // Skip anything already on the board (hint reveal OR crossing solved word)
+   if(!letterVisibleAt(w,i)) options.push({w,i});
   }
  }
  if(options.length<1){ say('No hidden letters remain'); return; }
  if(state.coins<DOUBLE_HINT_COST){ say(`You need ${DOUBLE_HINT_COST} coins`); return; }
  state.coins-=DOUBLE_HINT_COST;
  const n=Math.min(2, options.length);
- const picked=[];
  for(let k=0;k<n;k++){
   const ix=Math.floor(Math.random()*options.length);
   const p=options.splice(ix,1)[0];
-  picked.push(p);
   const have=new Set((revealed[p.w]||[]).map(Number));
-  have.add(p.i);
+  have.add(Number(p.i));
   revealed[p.w]=[...have];
  }
  revealMode=false;
