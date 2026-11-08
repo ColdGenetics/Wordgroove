@@ -210,7 +210,7 @@ body.in-game .top{display:none}
 .game-head{flex:0 0 38px;min-height:38px}
 .board.crossword{flex:0 1 auto;align-self:center;max-height:36dvh;min-height:0;margin:auto auto 0;}
 .cross-cell{font-size:clamp(15px,4.4vw,25px)!important;font-weight:1000!important;line-height:1}
-.selected-clue,.status{display:none!important}
+.selected-clue{display:none!important}/* status kept visible for word progress */
 .current{flex:0 0 30px;height:30px;min-height:30px;margin-top:auto;display:grid;place-items:center;font-size:clamp(20px,5.5vw,27px);letter-spacing:5px}
 .wheel-wrap{flex:0 0 min(32dvh,260px);min-height:155px;display:flex;align-items:center;justify-content:center}
 .wheel{width:min(64vw,28dvh,240px);max-width:240px;flex:none}
@@ -221,10 +221,14 @@ body.in-game .top{display:none}
 @media(max-height:620px){.board.crossword{max-height:27dvh}.wheel-wrap{flex-basis:21dvh;min-height:100px}.wheel{width:min(48vw,19dvh,160px)}.actions .action{min-height:32px}}
 
 
-/* Wordgrove 3.3 — dependable first paint and level-complete interstitial */
-#board.crossword{visibility:visible!important;opacity:1!important}
+/* 3.4-fixed: force first paint of board + wheel + cells */
+#board.crossword{visibility:visible!important;opacity:1!important;display:grid!important}
 #wheel{visibility:visible!important;opacity:1!important}
-.cross-cell{font-weight:1000!important}
+.letter{visibility:visible!important;opacity:1!important;color:#274438!important}
+.cross-cell{visibility:visible!important;opacity:1!important;background:#fff0c9e8!important;color:#203c30!important;font-weight:1000!important}
+.cross-cell.cross-solved{background:#b9e2b7e8!important}
+.cross-cell.cross-revealed{background:#f8d88feF!important}
+.status{display:block!important;visibility:visible!important;opacity:1!important;color:#fff0c6!important}
 .level-finish{text-align:center;padding:5px 0}
 .finish-leaf{font-size:34px;color:var(--gold);text-shadow:0 0 18px #e7f4b2aa}
 .level-finish h2{margin:8px 0;color:#fff4cf}
@@ -248,6 +252,7 @@ body.in-game .top{display:none}
       <h1>Wordgrove</h1>
       <p>Swipe letters, discover words, and watch your vocabulary grow.</p>
     </div>
+    <div class="app-version" id="homeVersion" style="margin-top:8px">Wordgrove v3.4.5</div>
     <div class="home-stats">
       <div class="stat-card"><strong id="homeLevel">1</strong><span>Current level</span></div>
       <div class="stat-card"><strong id="homeCoins">50</strong><span>Coins</span></div>
@@ -255,7 +260,7 @@ body.in-game .top{display:none}
     </div>
     <button class="action primary play-btn" id="playBtn">▶ &nbsp; Play</button>
     <button class="action" id="levelsBtn">✧ &nbsp; Levels</button>
-    <button class="home-help" id="homeHelp">How to play · Coins · Hints</button>
+    <button class="home-help" id="homeHelp" title="Help">How to play · Coins · Hints</button>
   </section>
 
   <section class="game" id="gameScreen" hidden>
