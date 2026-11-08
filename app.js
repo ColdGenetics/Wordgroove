@@ -1,4 +1,4 @@
-const APP_VERSION = '3.4.5';
+const APP_VERSION = '3.5';
 const $ = id => document.getElementById(id);
 const SAVE_KEY = 'wordgrove-v4-save';
 const LETTER_HINT_COST = 25, DEFINITION_HINT_COST = 15, DOUBLE_HINT_COST = 40;
@@ -119,9 +119,42 @@ function renderCrossword(){
  if($('status')) $('status').textContent=`${solved.size} / ${data.words.length} words`;
  updateSelectedWord();
 }
-function selectCrosswordCell(x,y){const entries=levels[level].layout.entries.filter(e=>{const dx=x-e.x,dy=y-e.y;return e.dir==='H'?dy===0&&dx>=0&&dx<e.word.length:dx===0&&dy>=0&&dy<e.word.length});if(!entries.length)return;
- if(revealMode){if(!selectedWord){say('Select a word first');return}const entry=entries.find(e=>e.word===selectedWord);if(!entry){say('Tap a square in the selected word');return;}const index=entry.dir==='H'?x-entry.x:y-entry.y;if(solved.has(selectedWord)){say('That word has already been revealed!');return}if((revealed[selectedWord]||[]).includes(index)){say('That letter is already revealed');return}if(state.coins<LETTER_HINT_COST){say(`You need ${LETTER_HINT_COST} coins`);revealMode=false;return}state.coins-=LETTER_HINT_COST;revealed[selectedWord]=[...(revealed[selectedWord]||[]),index];revealMode=false;persistLevel();renderCrossword();updateCoins();say(`Letter revealed · −${LETTER_HINT_COST} coins`);return}
- let next=entries.find(v=>v.word===selectedWord&&!solved.has(v.word))||entries.find(v=>!solved.has(v.word))||entries.find(v=>v.word===selectedWord)||entries[0];selectedWord=next.word;renderCrossword();}
+function selectCrosswordCell(x,y){
+ const entries=levels[level].layout.entries.filter(e=>{
+  const dx=x-e.x, dy=y-e.y;
+  return e.dir==='H' ? (dy===0 && dx>=0 && dx<e.word.length) : (dx===0 && dy>=0 && dy<e.word.length);
+ });
+ if(!entries.length) return;
+
+ if(revealMode){
+  if(!selectedWord){ say('Select a word first'); return; }
+  const entry=entries.find(e=>e.word===selectedWord);
+  if(!entry){ say('Tap a square in the selected word'); return; }
+  const index=entry.dir==='H' ? x-entry.x : y-entry.y;
+  if(solved.has(selectedWord)){ say('That word has already been revealed!'); return; }
+  if((revealed[selectedWord]||[]).includes(index)){ say('That letter is already revealed'); return; }
+  if(state.coins<LETTER_HINT_COST){ say(`You need ${LETTER_HINT_COST} coins`); revealMode=false; return; }
+  state.coins-=LETTER_HINT_COST;
+  revealed[selectedWord]=[...(revealed[selectedWord]||[]), index];
+  revealMode=false;
+  persistLevel(); renderCrossword(); updateCoins();
+  playEffect('success');
+  say(`Letter revealed · −${LETTER_HINT_COST} coins`);
+  return;
+ }
+
+ // Toggle off if tapping the already-selected word again
+ const onSelected = entries.some(e=>e.word===selectedWord);
+ if(onSelected && selectedWord){
+  selectedWord=null;
+  renderCrossword();
+  return;
+ }
+
+ let next=entries.find(v=>!solved.has(v.word)) || entries[0];
+ selectedWord=next.word;
+ renderCrossword();
+}
 function updateSelectedWord(){const w=selectedWord;$('selectedClue').textContent=revealMode?'Choose a letter square to reveal':w?`Selected word · ${w.length} letters`:'Tap a crossword word';}
 function drawWheel(){
  const wheel=$('wheel');
@@ -157,17 +190,106 @@ function updateCurrent(){$('current').textContent=currentWord().toUpperCase();[.
 function clearSelection(){picked=[];updateCurrent()}
 function coinRewardForExtra(word){return word.length<=2?1:word.length===3?2:word.length===4?3:word.length===5?4:5}
 function canMakeFromRack(word){const available={};for(const c of rack)available[c]=(available[c]||0)+1;for(const c of word){if(!available[c])return false;available[c]--}return true}
-function submit(){const w=currentWord();try{if(w.length<2){say('Swipe at least two letters');return}if(!canMakeFromRack(w)){say('Those letters are not available');return}if(levels[level].words.includes(w)){if(solved.has(w)){say('Already found');return}solveWord(w,true);return}if(dictionary.has(w)||TWO_LETTER_WORDS.has(w)){if(extras.has(w)){say('Already in your extra words list');return}extras.add(w);const reward=coinRewardForExtra(w);state.coins+=reward;persistLevel();updateCoins();say(`Extra word! +${reward} coin${reward===1?'':'s'}`);playEffect('success');return}say('Not in this level or the English word list')}finally{clearSelection()}}
+function submit(){
+ const w=currentWord().toLowerCase();
+ try{
+  if(w.length<2){ say('Swipe at least two letters'); return; }
+  if(!canMakeFromRack(w)){ say('Those letters are not available'); return; }
+  if(levels[level].words.includes(w)){
+   if(solved.has(w)){ say('Already found'); return; }
+   solveWord(w,true);
+   return;
+  }
+  if(dictionary.has(w) || TWO_LETTER_WORDS.has(w)){
+   if(extras.has(w)){ say('Already in your extra words list'); return; }
+   extras.add(w);
+   const reward=coinRewardForExtra(w);
+   state.coins+=reward;
+   persistLevel(); updateCoins();
+   say(`Extra word! +${reward} coin${reward===1?'':'s'}`);
+   playEffect('success');
+   return;
+  }
+  say('Not in this level or the English word list');
+ } finally { clearSelection(); }
+}
 function solveWord(w,reward=true){if(solved.has(w)||completionShown)return;solved.add(w);if(reward)state.coins+=WORD_REWARD;persistLevel();renderCrossword();updateCoins();playEffect('success');if(solved.size>=levels[level].words.length){finishLevel()}else say(`+${WORD_REWARD} coins · Well done!`)}
 function finishLevel(){if(completionShown||solved.size<levels[level].words.length)return;completionShown=true;const final=level===levels.length-1;const wordCoins=solved.size*WORD_REWARD;const bonusCoins=[...extras].reduce((n,w)=>n+coinRewardForExtra(w),0);state.coins+=LEVEL_REWARD;state.unlockedLevel=Math.max(state.unlockedLevel,Math.min(level+1,levels.length-1));persistLevel();updateCoins();const points=wordCoins+LEVEL_REWARD+bonusCoins;$('modal').innerHTML=`<div class="level-finish"><div class="finish-leaf">✦</div><h2>${final?'All levels complete!':'Level complete!'}</h2><p>Beautifully done. The next part of your adventure awaits.</p><div class="stats"><div><strong>+${points}</strong><span>POINTS GAINED</span></div><div><strong>${extras.size}</strong><span>BONUS WORDS</span></div></div><p class="finish-detail">${wordCoins} word points · ${LEVEL_REWARD} level bonus${bonusCoins?` · ${bonusCoins} bonus-word coins`:''}</p><button class="action primary" id="next">${final?'Return to menu':`Continue to ${stageForLevel(level+1).name} · ${level+2} →`}</button></div>`;$('overlay').classList.add('show');$('next').onclick=()=>{$('overlay').classList.remove('show');if(final){showHome();return}state.currentLevel=Math.min(level+1,levels.length-1);saveState();level=state.currentLevel;renderGame()}}
-async function getDefinition(word){if(definitions[word])return definitions[word];try{const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),9000);const r=await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`,{signal:controller.signal,cache:'force-cache'});clearTimeout(timer);if(!r.ok)throw new Error('No definition');const data=await r.json();const parts=[];for(const entry of data)for(const meaning of entry.meanings||[])for(const def of meaning.definitions||[])if(def.definition&&!parts.includes(def.definition))parts.push(def.definition);const value=parts.slice(0,2).join(' ');if(value){definitions[word]=value;try{localStorage.setItem('wordgrove-definitions',JSON.stringify(definitions))}catch{}return value}}catch{}return 'Definition is not available offline yet. Open this word while connected to the internet and it will be saved for next time.'}
+async function getDefinition(word){
+ const key=String(word).toLowerCase();
+ if(definitions[key]){
+  const v=definitions[key];
+  return Array.isArray(v) ? v : [v];
+ }
+ try{
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),9000);
+  const r=await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(key)}`,{signal:controller.signal});
+  clearTimeout(timer);
+  if(!r.ok) throw new Error('No definition');
+  const data=await r.json();
+  const parts=[];
+  for(const entry of data){
+   for(const meaning of entry.meanings||[]){
+    const pos=meaning.partOfSpeech ? `(${meaning.partOfSpeech}) ` : '';
+    for(const def of meaning.definitions||[]){
+     if(def.definition){
+      const line=pos+def.definition;
+      if(!parts.includes(line)) parts.push(line);
+     }
+    }
+   }
+  }
+  const value=parts.slice(0,4); // up to 4 senses
+  if(value.length){
+   definitions[key]=value;
+   try{ localStorage.setItem('wordgrove-definitions', JSON.stringify(definitions)); }catch{}
+   return value;
+  }
+ }catch{}
+ return ['Definition is not available offline yet. Open this word while connected to the internet and it will be saved for next time.'];
+}
 
 function openWordList(){const words=[...new Set(Object.values(state.solvedByLevel).flatMap(a=>a||[]))].sort();showListModal('Words found',words,'All puzzle words you have solved across your adventure.');}
 function openExtras(){const words=[...extras].sort();showListModal('Bonus words',words,'Bonus English words found that are not part of this crossword.');}
 async function showListModal(title,words,subtitle){$('modal').innerHTML=`<h2>${esc(title)}</h2><p>${esc(subtitle)}</p><div class="word-list" id="wordListBody">${words.length?words.map(w=>`<article class="word-definition"><strong>${esc(w.toUpperCase())}</strong><span>Loading definition…</span></article>`).join(''):'<p>No words yet. Keep playing!</p>'}</div><button class="action primary" id="closemodal">Close</button>`;$('overlay').classList.add('show');$('closemodal').onclick=()=>$('overlay').classList.remove('show');const body=$('wordListBody');await Promise.all(words.map(async w=>{const def=await getDefinition(w);const row=[...body.querySelectorAll('.word-definition')].find(el=>el.querySelector('strong')?.textContent===w.toUpperCase());if(row)row.querySelector('span').textContent=def}))}
-async function definitionHint(){const w=selectedWord;if(!w){say('Select a word in the crossword first');return}if(solved.has(w)){say('That word has already been revealed!');return}if(state.coins<DEFINITION_HINT_COST){say(`You need ${DEFINITION_HINT_COST} coins`);return}state.coins-=DEFINITION_HINT_COST;updateCoins();persistLevel();const def=await getDefinition(w);showModal('Definition hint',esc(def));}
-function revealOne(){if(!selectedWord){say('Select a word in the crossword first');return}if(solved.has(selectedWord)){say('That word has already been revealed!');return}if(state.coins<LETTER_HINT_COST){say(`You need ${LETTER_HINT_COST} coins`);return}revealMode=true;renderCrossword();say('Select the crossword letter you want revealed')}
-function revealTwo(){const unsolved=levels[level].words.filter(w=>!solved.has(w));const options=[];for(const w of unsolved)for(let i=0;i<w.length;i++)if(!(revealed[w]||[]).includes(i))options.push({w,i});if(options.length<2){say('Not enough hidden letters remain');return}if(state.coins<DOUBLE_HINT_COST){say(`You need ${DOUBLE_HINT_COST} coins`);return}state.coins-=DOUBLE_HINT_COST;for(let n=0;n<2;n++){const ix=Math.floor(Math.random()*options.length),p=options.splice(ix,1)[0];revealed[p.w]=[...(revealed[p.w]||[]),p.i]}persistLevel();renderCrossword();updateCoins();say(`Two letters revealed · −${DOUBLE_HINT_COST} coins`)}
+async function definitionHint(){
+ const w=selectedWord;
+ if(!w){ say('Select a word in the crossword first'); return; }
+ if(solved.has(w)){ say('That word has already been revealed!'); return; }
+ if(state.coins<DEFINITION_HINT_COST){ say(`You need ${DEFINITION_HINT_COST} coins`); return; }
+ state.coins-=DEFINITION_HINT_COST;
+ updateCoins(); persistLevel();
+ playEffect('success');
+ const defs=await getDefinition(w);
+ const body=defs.map((d,i)=>`<p class="def-line"><strong>${i+1}.</strong> ${esc(d)}</p>`).join('');
+ showModal(`Definition · ${w.toUpperCase()}`, body);
+}
+function revealOne(){
+ revealMode=true;
+ say('Tap a square in a selected word to reveal its letter');
+ updateSelectedWord();
+ playEffect('button');
+}
+function revealTwo(){
+ const unsolved=levels[level].words.filter(w=>!solved.has(w));
+ const options=[];
+ for(const w of unsolved)
+  for(let i=0;i<w.length;i++)
+   if(!(revealed[w]||[]).includes(i)) options.push({w,i});
+ if(options.length<1){ say('No hidden letters remain'); return; }
+ if(state.coins<DOUBLE_HINT_COST){ say(`You need ${DOUBLE_HINT_COST} coins`); return; }
+ state.coins-=DOUBLE_HINT_COST;
+ const n=Math.min(2, options.length);
+ for(let k=0;k<n;k++){
+  const ix=Math.floor(Math.random()*options.length);
+  const p=options.splice(ix,1)[0];
+  revealed[p.w]=[...(revealed[p.w]||[]), p.i];
+ }
+ persistLevel(); renderCrossword(); updateCoins();
+ playEffect('success');
+ say(`${n} letter${n>1?'s':''} revealed · −${DOUBLE_HINT_COST} coins`);
+}
 function openHints(){showModal('Choose a hint',`<div class="hint-options"><button class="action" id="oneHint">Reveal one letter · ${LETTER_HINT_COST} coins</button><button class="action" id="defHint">Show selected word definition · ${DEFINITION_HINT_COST} coins</button><button class="action" id="twoHint">Reveal two random letters · ${DOUBLE_HINT_COST} coins</button></div>`);$('modal').querySelector('#oneHint').onclick=()=>{$('overlay').classList.remove('show');revealOne()};$('modal').querySelector('#defHint').onclick=()=>{$('overlay').classList.remove('show');definitionHint()};$('modal').querySelector('#twoHint').onclick=()=>{$('overlay').classList.remove('show');revealTwo()}}
 function shuffle(){for(let i=rack.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[rack[i],rack[j]]=[rack[j],rack[i]]}picked=[];drawWheel();updateCurrent()}
 function showModal(title,body){
