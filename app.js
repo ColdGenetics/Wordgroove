@@ -1,4 +1,4 @@
-const APP_VERSION = '3.5.4';
+const APP_VERSION = '3.5.5';
 const $ = id => document.getElementById(id);
 const SAVE_KEY = 'wordgrove-v4-save';
 const LETTER_HINT_COST = 25, DEFINITION_HINT_COST = 15, DOUBLE_HINT_COST = 40;
@@ -334,6 +334,35 @@ async function getDefinition(word){
 function openWordList(){const words=[...new Set(Object.values(state.solvedByLevel).flatMap(a=>a||[]))].sort();showListModal('Words found',words,'All puzzle words you have solved across your adventure.');}
 function openExtras(){const words=[...extras].sort();showListModal('Bonus words',words,'Bonus English words found that are not part of this crossword.');}
 async function showListModal(title,words,subtitle){$('modal').innerHTML=`<h2>${esc(title)}</h2><p>${esc(subtitle)}</p><div class="word-list" id="wordListBody">${words.length?words.map(w=>`<article class="word-definition"><strong>${esc(w.toUpperCase())}</strong><span>Loading definition…</span></article>`).join(''):'<p>No words yet. Keep playing!</p>'}</div><button class="action primary" id="closemodal">Close</button>`;$('overlay').classList.add('show');$('closemodal').onclick=()=>$('overlay').classList.remove('show');const body=$('wordListBody');await Promise.all(words.map(async w=>{const def=await getDefinition(w);const row=[...body.querySelectorAll('.word-definition')].find(el=>el.querySelector('strong')?.textContent===w.toUpperCase());if(row)row.querySelector('span').textContent=def}))}
+async function spoilerForms(word){
+ const w=String(word).toLowerCase();
+ const forms=new Set([w]);
+ if(w.length>=2){
+  forms.add(w+'s'); forms.add(w+'es'); forms.add(w+'ed'); forms.add(w+'ing');
+  // common silent-e drops: rate -> rated/rating, care -> cared/caring
+  if(w.endsWith('e')){
+   const stem=w.slice(0,-1);
+   forms.add(stem+'ed'); forms.add(stem+'ing'); forms.add(stem+'es');
+  }
+  // consonant+y -> ies (e.g. city/cities) — only if ends with y
+  if(w.endsWith('y') && w.length>2 && !'aeiou'.includes(w[w.length-2])){
+   forms.add(w.slice(0,-1)+'ies');
+  }
+  // double final consonant + ed/ing for short words (rag -> ragged) — light touch
+  if(w.length<=4 && !'aeiou'.includes(w[w.length-1]) && 'aeiou'.includes(w[w.length-2]||'')){
+   forms.add(w+w[w.length-1]+'ed');
+   forms.add(w+w[w.length-1]+'ing');
+  }
+ }
+ return [...forms];
+}
+function filterSpoilerDefs(word, defs){
+ const forms=spoilerForms(word);
+ const re=new RegExp('\\b('+forms.map(f=>f.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')+')\\b','i');
+ const safe=defs.filter(d=>!re.test(d));
+ // Prefer non-spoiling defs; if none left, allow originals
+ return safe.length ? safe : defs;
+}
 async function definitionHint(){
  const w=selectedWord;
  if(!w){ say('Select a word in the crossword first'); return; }
@@ -342,8 +371,7 @@ async function definitionHint(){
  state.coins-=DEFINITION_HINT_COST;
  updateCoins(); persistLevel();
  playEffect('success');
- const defs=await getDefinition(w);
- // Do not show the answer word — only definitions
+ const defs=filterSpoilerDefs(w, await getDefinition(w));
  const body=defs.map((d,i)=>`<p class="def-line"><strong>${i+1}.</strong> ${esc(d)}</p>`).join('');
  showModal('Definition hint', body || '<p class="def-line">No definition available.</p>');
 }
