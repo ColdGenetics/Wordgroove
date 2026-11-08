@@ -1,4 +1,4 @@
-const APP_VERSION = '3.5.1';
+const APP_VERSION = '3.5.2';
 const $ = id => document.getElementById(id);
 const SAVE_KEY = 'wordgrove-v4-save';
 const LETTER_HINT_COST = 25, DEFINITION_HINT_COST = 15, DOUBLE_HINT_COST = 40;
@@ -129,7 +129,6 @@ function selectCrosswordCell(x,y){
  if(!entries.length) return;
 
  if(revealMode){
-  // Allow choosing a word first while in reveal mode
   if(!selectedWord){
    const pick=entries.find(v=>!solved.has(v.word))||entries[0];
    selectedWord=pick.word;
@@ -139,18 +138,19 @@ function selectCrosswordCell(x,y){
   }
   const entry=entries.find(e=>e.word===selectedWord);
   if(!entry){
-   // Tapped a different word — switch selection, stay in reveal mode
    const pick=entries.find(v=>!solved.has(v.word))||entries[0];
    selectedWord=pick.word;
    renderCrossword();
    return;
   }
-  const index=entry.dir==='H' ? x-entry.x : y-entry.y;
+  const index=Number(entry.dir==='H' ? x-entry.x : y-entry.y);
   if(solved.has(selectedWord)){ say('That word is already solved'); revealMode=false; renderCrossword(); return; }
-  if((revealed[selectedWord]||[]).includes(index)){ say('That letter is already revealed'); return; }
+  const have=new Set((revealed[selectedWord]||[]).map(Number));
+  if(have.has(index)){ say('That letter is already revealed'); return; }
   if(state.coins<LETTER_HINT_COST){ say(`You need ${LETTER_HINT_COST} coins`); revealMode=false; renderCrossword(); return; }
   state.coins-=LETTER_HINT_COST;
-  revealed[selectedWord]=[...(revealed[selectedWord]||[]), index];
+  have.add(index);
+  revealed[selectedWord]=[...have];
   revealMode=false;
   persistLevel(); updateCoins();
   playEffect('success');
@@ -160,7 +160,6 @@ function selectCrosswordCell(x,y){
   return;
  }
 
- // Normal selection / toggle off
  const onSelected = selectedWord && entries.some(e=>e.word===selectedWord);
  if(onSelected){
   selectedWord=null;
@@ -232,8 +231,10 @@ function submit(){
  } finally { clearSelection(); }
 }
 function letterVisibleAt(word, index){
+ index=Number(index);
  if(solved.has(word)) return true;
- if((revealed[word]||[]).includes(index)) return true;
+ const have=new Set((revealed[word]||[]).map(Number));
+ if(have.has(index)) return true;
  // Crossing solved words can fill a letter
  const data=levels[level];
  if(!data) return false;
@@ -266,7 +267,6 @@ function autoCompleteRevealedWords(){
    if(completionShown) return;
   }
  }
- if(any) say('Word complete!');
 }
 function solveWord(w,reward=true){
  if(solved.has(w)||completionShown) return;
@@ -365,17 +365,24 @@ function revealOne(){
 function revealTwo(){
  const unsolved=levels[level].words.filter(w=>!solved.has(w));
  const options=[];
- for(const w of unsolved)
-  for(let i=0;i<w.length;i++)
-   if(!(revealed[w]||[]).includes(i)) options.push({w,i});
+ for(const w of unsolved){
+  const have=new Set((revealed[w]||[]).map(Number));
+  for(let i=0;i<w.length;i++){
+   if(!have.has(i)) options.push({w,i});
+  }
+ }
  if(options.length<1){ say('No hidden letters remain'); return; }
  if(state.coins<DOUBLE_HINT_COST){ say(`You need ${DOUBLE_HINT_COST} coins`); return; }
  state.coins-=DOUBLE_HINT_COST;
  const n=Math.min(2, options.length);
+ const picked=[];
  for(let k=0;k<n;k++){
   const ix=Math.floor(Math.random()*options.length);
   const p=options.splice(ix,1)[0];
-  revealed[p.w]=[...(revealed[p.w]||[]), p.i];
+  picked.push(p);
+  const have=new Set((revealed[p.w]||[]).map(Number));
+  have.add(p.i);
+  revealed[p.w]=[...have];
  }
  revealMode=false;
  persistLevel(); updateCoins();
