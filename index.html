@@ -243,29 +243,7 @@ body.in-game .top{display:none}
 
 .def-line{text-align:left;margin:8px 0;line-height:1.4;color:#e8efdf;font-size:13px}
 .def-line strong{color:var(--gold);margin-right:6px}
-#wotd{color:#e7f0df;font-size:13px;line-height:1.4;margin:8px 0 0}
-.coin-ico{width:15px;height:15px;border-radius:50%;border:2px solid var(--gold);display:inline-block;box-shadow:inset 0 0 0 3px transparent, inset 0 0 0 4px var(--gold)}
-.stage-progress{height:5px;border-radius:8px;background:#ffffff22;overflow:hidden;margin-top:4px}
-.stage-progress>i{display:block;height:100%;width:0;background:linear-gradient(90deg,#d9e9a8,#f3c66a)}
-.overlay.finish-open{background:#06171340}
-.overlay.finish-open .modal{background:#16352e55;backdrop-filter:blur(6px)}
-.cross-cell.cross-solved{background-image:repeating-linear-gradient(135deg,transparent 0 4px,#ffffff66 4px 6px),linear-gradient(145deg,#9fcca0,#6eaa82)!important}
-.cross-cell.cross-revealed{background-image:radial-gradient(#3c3511 1.1px,transparent 1.5px),linear-gradient(145deg,#f4d78b,#e7b95f)!important;background-size:7px 7px,auto}
-.lvl-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin:8px 0}
-.lvl-btn{min-height:40px;border-radius:10px;border:1px solid #ffffff33;background:#ffffff14;color:#fff;font-weight:800}
-.lvl-btn.is-current{outline:2px solid var(--gold)}
-.lvl-btn.is-done{background:#6eaa8266}
-.lvl-btn:disabled{opacity:.35}
-#cheatCode{width:100%;margin:8px 0;padding:10px;border-radius:12px;border:1px solid #ffffff44;background:#0003;color:#fff;font:inherit}
-.breaker{position:fixed;inset:0;z-index:30;background:#061713ee;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}
-#ambient{pointer-events:none;position:fixed;inset:0;overflow:hidden;z-index:0}
-#ambient span{position:absolute;top:-12px;width:9px;height:11px;border-radius:0 80% 0 80%;background:#d7b56a99;animation:fall linear infinite}
-body.stage-moonlit-forest #ambient span,body.stage-misty-highlands #ambient span,body.stage-crystal-lake #ambient span{border-radius:50%;background:#ffffffd0;width:4px;height:4px}
-@keyframes fall{to{transform:translateY(105vh) rotate(200deg)}}
-#fx{pointer-events:none;position:fixed;inset:0;z-index:9}
-.spark{position:absolute;width:8px;height:8px;border-radius:50%;background:#f3c66a;animation:pop .75s ease-out forwards}
-@keyframes pop{to{transform:translate(var(--dx),var(--dy));opacity:0}}
-.app{position:relative;z-index:1}
+
 </style>
 </head>
 <body>
@@ -278,8 +256,7 @@ body.stage-moonlit-forest #ambient span,body.stage-misty-highlands #ambient span
       <h1>Wordgrove</h1>
       <p>Swipe letters, discover words, and watch your vocabulary grow.</p>
     </div>
-    <p id="wotd">Word of the day</p>
-    <div class="app-version" id="homeVersion">Wordgrove v3.6.0</div>
+    <div class="app-version" id="homeVersion">Wordgrove v3.5.10</div>
     <div class="home-stats">
       <div class="stat-card"><strong id="homeLevel">1</strong><span>Current level</span></div>
       <div class="stat-card"><strong id="homeCoins">50</strong><span>Coins</span></div>
@@ -287,17 +264,14 @@ body.stage-moonlit-forest #ambient span,body.stage-misty-highlands #ambient span
     </div>
     <button class="action primary play-btn" id="playBtn">▶ &nbsp; Play</button>
     <button class="action" id="levelsBtn">✧ &nbsp; Levels</button>
-    <button class="action" id="dailyBtn">☀ &nbsp; Daily puzzle</button>
-    <button class="action" id="allWordsBtn">▤ &nbsp; All words</button>
-    <button class="action" id="miniBtn">▣ &nbsp; Grove Breaker</button>
     <button class="home-help" id="homeHelp" title="Help">How to play · Coins · Hints</button>
   </section>
 
   <section class="game" id="gameScreen" hidden>
     <div class="game-head">
       <button class="iconbtn" id="gameMenuBtn" aria-label="Game menu">☰</button>
-      <div class="level-info"><span class="levelname" id="levelname">Meadow · 1</span><span class="level-sub" id="levelsub">Find all the words</span><div class="stage-progress"><i id="stageBar"></i></div></div>
-      <div class="coin-pill"><span class="coin-ico" aria-hidden="true"></span><span id="gameCoins">50</span></div>
+      <div class="level-info"><span class="levelname" id="levelname">Meadow · 1</span><span class="level-sub" id="levelsub">Find all the words</span></div>
+      <div class="coin-pill"><span>●</span><span id="gameCoins">50</span></div>
     </div>
     <section class="board crossword" id="board" aria-label="Crossword puzzle"></section>
     <div class="selected-clue" id="selectedClue" aria-hidden="true"></div>
