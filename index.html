@@ -244,6 +244,17 @@ body.in-game .top{display:none}
 .def-line{text-align:left;margin:8px 0;line-height:1.4;color:#e8efdf;font-size:13px}
 .def-line strong{color:var(--gold);margin-right:6px}
 
+
+.stage-summary{color:var(--muted);font-size:12px;line-height:1.4;margin:0 0 10px}
+.level-list{display:grid;gap:6px;max-height:48vh;overflow:auto;margin:0 0 10px;padding-right:2px}
+.level-row{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:1px solid #ffffff30;background:#ffffff12;color:var(--cream);border-radius:12px;padding:10px 11px;font-size:13px}
+.level-row.current{border-color:#f3c66a88;background:#f3c66a18}
+.level-row.done{border-color:#a8d5a255}
+.level-row.locked{opacity:.42}
+.level-row-num{font-weight:900;color:#fff0c6;min-width:2.6em}
+.level-row-meta{flex:1;color:#e1e9d6;font-size:12px}
+.level-row-tag{font-size:10px;font-weight:850;letter-spacing:.4px;text-transform:uppercase;color:var(--gold);background:#f3c66a22;border:1px solid #f3c66a55;border-radius:999px;padding:3px 8px}
+
 </style>
 </head>
 <body>
@@ -256,7 +267,7 @@ body.in-game .top{display:none}
       <h1>Wordgrove</h1>
       <p>Swipe letters, discover words, and watch your vocabulary grow.</p>
     </div>
-    <div class="app-version" id="homeVersion">Wordgrove v3.5.11</div>
+    <div class="app-version" id="homeVersion">Wordgrove v3.5.12</div>
     <div class="home-stats">
       <div class="stat-card"><strong id="homeLevel">1</strong><span>Current level</span></div>
       <div class="stat-card"><strong id="homeCoins">50</strong><span>Coins</span></div>

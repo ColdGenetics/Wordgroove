@@ -1,4 +1,4 @@
-const APP_VERSION = '3.5.11';
+const APP_VERSION = '3.5.12';
 const $ = id => document.getElementById(id);
 const SAVE_KEY = 'wordgrove-v4-save';
 const LETTER_HINT_COST = 25, DEFINITION_HINT_COST = 15, DOUBLE_HINT_COST = 40;
@@ -54,7 +54,35 @@ function levelNo(){return Math.min(Math.max(state.currentLevel,state.unlockedLev
 function updateCoins(){$('homeCoins').textContent=state.coins;$('gameCoins').textContent=state.coins}
 function updateHome(){$('homeLevel').textContent=levelNo().toLocaleString();updateCoins();$('homeWords').textContent=Object.values(state.solvedByLevel).reduce((n,a)=>n+(a||[]).length,0).toLocaleString();const hv=$('homeVersion');if(hv)hv.textContent=`Wordgrove v${APP_VERSION}`;}
 function showHome(){document.body.classList.remove('in-game');$('gameScreen').hidden=true;$('homeScreen').hidden=false;$('overlay').classList.remove('show');updateHome()}
-function startGame(){document.body.classList.add('in-game');level=Math.min(Math.max(state.currentLevel,0),state.unlockedLevel,levels.length-1);state.currentLevel=level;if((state.solvedByLevel[level]||[]).length===levels[level].words.length){state.unlockedLevel=Math.min(level+1,levels.length-1);level=state.unlockedLevel;state.currentLevel=level} $('homeScreen').hidden=true;$('gameScreen').hidden=false;renderGame();saveState()}
+function clampLevel(n){return Math.max(0,Math.min(Number(n)||0,levels.length-1))}
+function isLevelComplete(n){const words=levels[n]?.words||[];const solvedArr=state.solvedByLevel[n]||[];return words.length>0&&solvedArr.length>=words.length}
+/** Jump to an explicit level index. Respects unlock unless force=true (dev). */
+function goToLevel(n,{force=false,resumeNextIncomplete=false}={}){
+ n=clampLevel(n);
+ if(!force && n>state.unlockedLevel){ say('That level is still locked'); return false; }
+ // Optional: from Play button, hop past fully-solved levels to the first incomplete unlocked one
+ if(resumeNextIncomplete){
+  let candidate=n;
+  while(candidate<state.unlockedLevel && isLevelComplete(candidate)) candidate++;
+  n=clampLevel(Math.min(candidate,state.unlockedLevel));
+ }
+ level=n;
+ state.currentLevel=n;
+ // Ensure unlock tracks progress if we somehow completed current
+ if(isLevelComplete(n)) state.unlockedLevel=Math.max(state.unlockedLevel,Math.min(n+1,levels.length-1));
+ document.body.classList.add('in-game');
+ $('homeScreen').hidden=true;
+ $('gameScreen').hidden=false;
+ $('overlay').classList.remove('show');
+ renderGame();
+ saveState();
+ return true;
+}
+function startGame(){
+ // Play / Continue: resume working level, skipping already-finished ones only when appropriate
+ const resume=clampLevel(state.currentLevel);
+ goToLevel(resume,{resumeNextIncomplete:true});
+}
 function persistLevel(){state.solvedByLevel[level]=[...solved];state.revealedByLevel[level]=revealed;state.extrasByLevel[level]=[...extras];state.currentLevel=level;saveState()}
 function renderGame(){
  const data=levels[level]; if(!data)return;
@@ -576,19 +604,159 @@ function handleMove(e){if(!pointerActive||e.pointerId!==pointerId)return;const d
 function handleUp(e){if(!pointerActive||e.pointerId!==pointerId)return;const shouldSubmit=e.type==='pointerup'&&picked.length>=2;pointerActive=false;pointerId=null;startPoint=null;if(shouldSubmit)submit();else clearSelection()}
 
 const STAGES=[['Meadow','meadow'],['Field','field'],['Moonlit Mountain Forest','moonlit-forest'],['Waterfall','waterfall'],['Autumn Grove','autumn-grove'],['Crystal Lake','crystal-lake'],['Misty Highlands','misty-highlands'],['Sunset Valley','sunset-valley']];
-function stageForLevel(n){const stageIndex=Math.floor(n/25);const base=STAGES[stageIndex%STAGES.length];const cycle=Math.floor(stageIndex/STAGES.length);const name=cycle?`${base[0]} ${cycle+1}`:base[0];return {name,key:base[1],first:stageIndex*25,last:Math.min(stageIndex*25+24,levels.length-1)}}
-function openLevels(){const cards=[];const count=Math.ceil(levels.length/25);for(let i=0;i<count;i++){const base=STAGES[i%STAGES.length],cycle=Math.floor(i/STAGES.length),name=cycle?`${base[0]} ${cycle+1}`:base[0],first=i*25,last=Math.min(first+24,levels.length-1),open=first<=state.unlockedLevel;cards.push(`<button class="stage-card" data-stage-index="${i}" ${open?'':'disabled'}><strong>${esc(name)}</strong><span>Levels ${first+1}–${last+1} · ${open?'Unlocked':'Locked'}</span></button>`)}showModal('Choose a stage',`<div class="stage-grid">${cards.join('')}</div>`);$('modal').querySelectorAll('[data-stage-index]').forEach(b=>b.onclick=()=>{const first=Number(b.dataset.stageIndex)*25;state.currentLevel=Math.min(first,levels.length-1);saveState();$('overlay').classList.remove('show');startGame()})}
+function stageForLevel(n){
+ const stageIndex=Math.floor(n/25);
+ const base=STAGES[stageIndex%STAGES.length];
+ const cycle=Math.floor(stageIndex/STAGES.length);
+ const name=cycle?`${base[0]} ${cycle+1}`:base[0];
+ return {name,key:base[1],first:stageIndex*25,last:Math.min(stageIndex*25+24,levels.length-1)};
+}
+function openLevels(){
+ const cards=[];
+ const count=Math.ceil(levels.length/25);
+ for(let i=0;i<count;i++){
+  const base=STAGES[i%STAGES.length], cycle=Math.floor(i/STAGES.length);
+  const name=cycle?`${base[0]} ${cycle+1}`:base[0];
+  const first=i*25, last=Math.min(first+24,levels.length-1);
+  const open=first<=state.unlockedLevel;
+  let done=0;
+  for(let L=first;L<=last;L++) if(isLevelComplete(L)) done++;
+  const total=last-first+1;
+  cards.push(`<button class="stage-card" data-stage-index="${i}" ${open?'':'disabled'}><strong>${esc(name)}</strong><span>Levels ${first+1}–${last+1} · ${done}/${total} clear · ${open?'Unlocked':'Locked'}</span></button>`);
+ }
+ showModal('Choose a stage',`<div class="stage-grid">${cards.join('')}</div>`);
+ $('modal').querySelectorAll('[data-stage-index]').forEach(b=>{
+  b.onclick=()=>openStageLevels(Number(b.dataset.stageIndex));
+ });
+}
+function openStageLevels(stageIndex){
+ const first=stageIndex*25;
+ const last=Math.min(first+24,levels.length-1);
+ const base=STAGES[stageIndex%STAGES.length];
+ const cycle=Math.floor(stageIndex/STAGES.length);
+ const name=cycle?`${base[0]} ${cycle+1}`:base[0];
+ const rows=[];
+ for(let L=first;L<=last;L++){
+  const locked=L>state.unlockedLevel;
+  const done=isLevelComplete(L);
+  const current=L===state.currentLevel;
+  const words=levels[L]?.words?.length||0;
+  const found=(state.solvedByLevel[L]||[]).length;
+  let badge='';
+  if(locked) badge='Locked';
+  else if(done) badge='Cleared';
+  else if(found>0) badge=`${found}/${words}`;
+  else badge='Open';
+  const cls=['level-row'];
+  if(locked) cls.push('locked');
+  if(done) cls.push('done');
+  if(current) cls.push('current');
+  rows.push(`<button class="${cls.join(' ')}" data-level="${L}" ${locked?'disabled':''}><span class="level-row-num">#${L+1}</span><span class="level-row-meta">${words} words · ${badge}</span>${current?'<span class="level-row-tag">Current</span>':''}</button>`);
+ }
+ showModal(name,`<p class="stage-summary">Levels ${first+1}–${last+1}. Tap any unlocked level to play it — progress on other levels is kept.</p><div class="level-list">${rows.join('')}</div><button class="action" id="backToStages">← All stages</button>`);
+ const m=$('modal');
+ m.querySelectorAll('[data-level]').forEach(b=>{
+  b.onclick=()=>{
+   const n=Number(b.dataset.level);
+   goToLevel(n,{force:false,resumeNextIncomplete:false});
+  };
+ });
+ const back=m.querySelector('#backToStages');
+ if(back) back.onclick=()=>openLevels();
+}
+function isDevMode(){
+ try{
+  if(new URLSearchParams(location.search).get('dev')==='1') return true;
+  if(localStorage.getItem('wordgrove-dev')==='1') return true;
+ }catch{}
+ return false;
+}
 function openGameMenu(){
+ const dev=isDevMode();
  showModal('Game menu',
   `<div class="menu-options">
     <button class="action" id="settingsOpen">♫ Sound settings</button>
     <button class="action" id="levelsOpen">✧ Levels</button>
     <button class="action" id="returnHome">⌂ Return to menu</button>
+    ${dev?`<button class="action" id="devToolsOpen">⚒ Testing tools</button>`:''}
   </div>`);
  const m=$('modal');
  m.querySelector('#settingsOpen').onclick=openSoundSettings;
  m.querySelector('#levelsOpen').onclick=openLevels;
  m.querySelector('#returnHome').onclick=showHome;
+ const d=m.querySelector('#devToolsOpen');
+ if(d) d.onclick=openDevTools;
+}
+function openDevTools(){
+ showModal('Testing tools',
+  `<p class="stage-summary">Developer helpers. Progress is saved to this browser only.</p>
+   <div class="menu-options">
+    <button class="action" id="devAutoSolve">Auto-solve current level</button>
+    <button class="action" id="devUnlock20">Unlock first 20 levels (mark cleared)</button>
+    <button class="action" id="devUnlock50">Unlock first 50 levels</button>
+    <button class="action" id="devUnlockAll">Unlock all levels</button>
+    <button class="action" id="devAddCoins">+500 coins</button>
+    <button class="action" id="devJump">Jump to level…</button>
+    <button class="action" id="devResetLevel">Reset current level progress</button>
+    <button class="action" id="devResetAll">Reset ALL progress</button>
+    <button class="action" id="devDisable">Hide testing tools</button>
+   </div>
+   <button class="action" id="devBack">← Back</button>`);
+ const m=$('modal');
+ m.querySelector('#devBack').onclick=openGameMenu;
+ m.querySelector('#devAutoSolve').onclick=()=>{devAutoSolve();};
+ m.querySelector('#devUnlock20').onclick=()=>{devUnlockThrough(19); openDevTools();};
+ m.querySelector('#devUnlock50').onclick=()=>{devUnlockThrough(49); openDevTools();};
+ m.querySelector('#devUnlockAll').onclick=()=>{devUnlockThrough(levels.length-1); openDevTools();};
+ m.querySelector('#devAddCoins').onclick=()=>{state.coins+=500; saveState(); updateCoins(); say('+500 coins');};
+ m.querySelector('#devJump').onclick=()=>{
+  const raw=prompt('Jump to level number (1–'+levels.length+')', String(level+1));
+  if(raw==null) return;
+  const n=parseInt(raw,10);
+  if(!Number.isFinite(n)||n<1||n>levels.length){ say('Invalid level'); return; }
+  state.unlockedLevel=Math.max(state.unlockedLevel,n-1);
+  goToLevel(n-1,{force:true});
+ };
+ m.querySelector('#devResetLevel').onclick=()=>{
+  delete state.solvedByLevel[level];
+  delete state.revealedByLevel[level];
+  delete state.extrasByLevel[level];
+  saveState();
+  renderGame();
+  say('Current level reset');
+ };
+ m.querySelector('#devResetAll').onclick=()=>{
+  if(!confirm('Erase all Wordgrove progress on this device?')) return;
+  state=freshState();
+  saveState();
+  showHome();
+  say('Progress cleared');
+ };
+ m.querySelector('#devDisable').onclick=()=>{
+  try{ localStorage.removeItem('wordgrove-dev'); }catch{}
+  say('Testing tools hidden (add ?dev=1 to URL to show again)');
+  openGameMenu();
+ };
+}
+function devUnlockThrough(lastIndex){
+ lastIndex=clampLevel(lastIndex);
+ for(let i=0;i<=lastIndex;i++){
+  const words=levels[i]?.words||[];
+  state.solvedByLevel[i]=words.slice();
+ }
+ state.unlockedLevel=Math.max(state.unlockedLevel,Math.min(lastIndex+1,levels.length-1));
+ state.currentLevel=Math.min(lastIndex,state.unlockedLevel);
+ saveState();
+ updateHome();
+ say(`Unlocked through level ${lastIndex+1}`);
+}
+function devAutoSolve(){
+ if($('gameScreen').hidden||!levels[level]){ say('Open a level first'); return; }
+ const words=levels[level].words||[];
+ for(const w of words){
+  if(!solved.has(w)) solveWord(w,false);
+ }
+ say('Level auto-solved');
 }
 function openSoundSettings(){showModal('Sound settings',`<div class="menu-options"><button class="action" id="musicToggle">Background music: ${musicOn?'On':'Off'}</button><button class="action" id="effectsToggle">Nature sounds: ${effectsOn?'On':'Off'}</button></div>`);$('modal').querySelector('#musicToggle').onclick=()=>{toggleMusic();openSoundSettings()};$('modal').querySelector('#effectsToggle').onclick=()=>{toggleEffects();openSoundSettings()}}
 
@@ -604,5 +772,7 @@ $('playBtn').addEventListener('click',startGame);$('homeMenuBtn').addEventListen
 document.addEventListener('visibilitychange',()=>{if(document.hidden)stopMusicForBackground();else resumeMusic()});window.addEventListener('pagehide',stopMusicForBackground);window.addEventListener('pageshow',()=>{if(!document.hidden)resumeMusic()});
 document.addEventListener('click',e=>{if(e.target.closest('button')&&!e.target.closest('.letter'))playEffect('button')});
 $('wheel').addEventListener('pointerdown',handleDown);document.addEventListener('pointermove',handleMove,{passive:false});document.addEventListener('pointerup',handleUp);document.addEventListener('pointercancel',handleUp);
-async function boot(){try{const [lr,dr,df]=await Promise.all([fetch('./levels.json'),fetch('./dictionary.json'),fetch('./definitions.json').catch(()=>null)]);if(!lr.ok||!dr.ok)throw Error('Puzzle files unavailable');levels=await lr.json();dictionary=new Set(await dr.json());if(df?.ok)definitions=await df.json();try{definitions={...definitions,...JSON.parse(localStorage.getItem('wordgrove-definitions')||'{}')}}catch{}state.currentLevel=Math.min(state.currentLevel,levels.length-1);state.unlockedLevel=Math.min(state.unlockedLevel,levels.length-1);updateHome();showHome();const hv=$('homeVersion');if(hv)hv.textContent=`Wordgrove v${APP_VERSION}`;if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{})}catch(e){$('homeScreen').innerHTML='<div class="hero"><h1>Wordgrove</h1><p>The puzzle library could not be loaded. Connect to the internet once, then refresh.</p></div>'}}
+async function boot(){try{const [lr,dr,df]=await Promise.all([fetch('./levels.json'),fetch('./dictionary.json'),fetch('./definitions.json').catch(()=>null)]);if(!lr.ok||!dr.ok)throw Error('Puzzle files unavailable');levels=await lr.json();dictionary=new Set(await dr.json());if(df?.ok)definitions=await df.json();try{definitions={...definitions,...JSON.parse(localStorage.getItem('wordgrove-definitions')||'{}')}}catch{}state.currentLevel=Math.min(state.currentLevel,levels.length-1);state.unlockedLevel=Math.min(state.unlockedLevel,levels.length-1);updateHome();showHome();const hv=$('homeVersion');if(hv)hv.textContent=`Wordgrove v${APP_VERSION}`;
+ try{ if(new URLSearchParams(location.search).get('dev')==='1') localStorage.setItem('wordgrove-dev','1'); }catch{}
+if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{})}catch(e){$('homeScreen').innerHTML='<div class="hero"><h1>Wordgrove</h1><p>The puzzle library could not be loaded. Connect to the internet once, then refresh.</p></div>'}}
 window.addEventListener('resize',()=>{if(levels.length&&!$('gameScreen').hidden){renderCrossword();drawWheel()}});boot();
