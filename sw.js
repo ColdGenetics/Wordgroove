@@ -1,4 +1,4 @@
-const CACHE = 'wordgrove-v16';
+const CACHE = 'wordgrove-v17';
 const SHELL = ['./','./index.html','./app.js','./sw.js','./manifest.webmanifest'];
 const ASSETS = ['./levels.json','./dictionary.json','./definitions.json','./icon.svg','./meadow.svg','./field.svg','./moonlit-forest.svg','./waterfall.svg','./autumn-grove.svg','./crystal-lake.svg','./misty-highlands.svg','./sunset-valley.svg'];
 const FILES = SHELL.concat(ASSETS);

@@ -1,4 +1,4 @@
-const APP_VERSION = '3.5.15';
+const APP_VERSION = '3.5.16';
 const $ = id => document.getElementById(id);
 const SAVE_KEY = 'wordgrove-v4-save';
 const LETTER_HINT_COST = 25, DEFINITION_HINT_COST = 15, DOUBLE_HINT_COST = 40;
@@ -604,60 +604,144 @@ function openExtras(){
  const words=[...extras].sort();
  showListModal('Bonus words',words,'Bonus English words found on this level that are not part of the crossword.',{mode:'level'});
 }
-/** All puzzle words ever solved, with level metadata (home Words button). */
+/** Collect word counts per level without fetching definitions. */
+function collectWordsByLevel(){
+ const byLevel=new Map(); // L -> {puzzle:Set, bonus:Set}
+ const touch=(L)=>{
+  if(!byLevel.has(L)) byLevel.set(L,{puzzle:new Set(),bonus:new Set()});
+  return byLevel.get(L);
+ };
+ for(const [k,arr] of Object.entries(state.solvedByLevel||{})){
+  const L=Number(k); if(!Number.isFinite(L)||!arr) continue;
+  const bucket=touch(L);
+  for(const w of arr) if(w) bucket.puzzle.add(String(w).toLowerCase());
+ }
+ for(const [k,arr] of Object.entries(state.extrasByLevel||{})){
+  const L=Number(k); if(!Number.isFinite(L)||!arr) continue;
+  const bucket=touch(L);
+  for(const w of arr) if(w) bucket.bonus.add(String(w).toLowerCase());
+ }
+ return byLevel;
+}
+
+/** Home Words: browse Stage → Level → words (definitions load only for the opened level). */
 function openGlobalWordList(){
- const entries=[];
- const seen=new Map(); // word -> first level index
- const levelKeys=Object.keys(state.solvedByLevel).map(Number).sort((a,b)=>a-b);
- for(const L of levelKeys){
-  for(const w of (state.solvedByLevel[L]||[])){
-   if(!seen.has(w)) seen.set(w, L);
-   entries.push({word:w, level:L, kind:'puzzle'});
-  }
+ const byLevel=collectWordsByLevel();
+ if(!byLevel.size){
+  showModal('Words found','<p>No words yet. Keep playing!</p>');
+  return;
  }
- // Include bonus words with their levels when available
- const extraKeys=Object.keys(state.extrasByLevel||{}).map(Number).sort((a,b)=>a-b);
- for(const L of extraKeys){
-  for(const w of (state.extrasByLevel[L]||[])){
-   entries.push({word:w, level:L, kind:'bonus'});
-  }
+ openWordStages(byLevel);
+}
+
+function openWordStages(byLevel){
+ // Group levels into stages (25 levels each)
+ const stageMap=new Map(); // stageIndex -> {levels: number[], puzzle:n, bonus:n}
+ for(const L of [...byLevel.keys()].sort((a,b)=>a-b)){
+  const si=Math.floor(L/25);
+  if(!stageMap.has(si)) stageMap.set(si,{levels:[],puzzle:0,bonus:0});
+  const s=stageMap.get(si);
+  s.levels.push(L);
+  const b=byLevel.get(L);
+  s.puzzle+=b.puzzle.size;
+  s.bonus+=b.bonus.size;
  }
- entries.sort((a,b)=>a.word.localeCompare(b.word)||a.level-b.level);
- showRichWordList(
-  'All words found',
-  entries,
-  'Every puzzle and bonus word you have found, with the level it was recorded on.'
- );
-}
-async function showListModal(title,words,subtitle,opts={}){
- $('modal').innerHTML=`<h2>${esc(title)}</h2><p>${esc(subtitle)}</p><div class="word-list" id="wordListBody">${words.length?words.map(w=>`<article class="word-definition" data-word="${esc(w)}"><strong>${esc(w.toUpperCase())}</strong><span>Loading definition…</span></article>`).join(''):'<p>No words yet. Keep playing!</p>'}</div><button class="action primary" id="closemodal">Close</button>`;
- $('overlay').classList.add('show');
- $('closemodal').onclick=()=>$('overlay').classList.remove('show');
- const body=$('wordListBody');
- await Promise.all(words.map(async w=>{
-  const def=await getDefinition(w);
-  const row=[...body.querySelectorAll("[data-word]")].find(el=>el.getAttribute("data-word")===w);
-  if(row) row.querySelector('span').textContent=Array.isArray(def)?def.join(' · '):def;
- }));
-}
-async function showRichWordList(title,entries,subtitle){
- const bodyHtml=entries.length
-  ? entries.map((e,i)=>`<article class="word-definition rich" data-idx="${i}"><div class="word-def-head"><strong>${esc(e.word.toUpperCase())}</strong><span class="word-level-tag">${e.kind==='bonus'?'Bonus · ':''}Level ${e.level+1}</span></div><span class="word-def-text">Loading definition…</span></article>`).join('')
-  : '<p>No words yet. Keep playing!</p>';
- $('modal').innerHTML=`<h2>${esc(title)}</h2><p class="stage-summary">${esc(subtitle)}</p><div class="word-list" id="wordListBody">${bodyHtml}</div><button class="action primary" id="closemodal">Close</button>`;
- $('overlay').classList.add('show');
- $('closemodal').onclick=()=>$('overlay').classList.remove('show');
- const body=$('wordListBody');
- // Dedupe definition fetches by word
- const unique=[...new Set(entries.map(e=>e.word))];
- const defs={};
- await Promise.all(unique.map(async w=>{ defs[w]=await getDefinition(w); }));
- entries.forEach((e,i)=>{
-  const row=body.querySelector(`[data-idx="${i}"]`);
-  if(!row) return;
-  const def=defs[e.word];
-  row.querySelector('.word-def-text').textContent=Array.isArray(def)?def.join(' · '):String(def||'');
+ const cards=[];
+ for(const [si,s] of [...stageMap.entries()].sort((a,b)=>a[0]-b[0])){
+  const base=STAGES[si%STAGES.length];
+  const cycle=Math.floor(si/STAGES.length);
+  const name=cycle?`${base[0]} ${cycle+1}`:base[0];
+  const first=si*25+1;
+  const last=Math.min(si*25+25, Math.max(...s.levels)+1);
+  const total=s.puzzle+s.bonus;
+  cards.push(`<button class="stage-card" data-word-stage="${si}"><strong>${esc(name)}</strong><span>Levels with finds · ${total} word${total===1?'':'s'} (${s.puzzle} puzzle · ${s.bonus} bonus)</span></button>`);
+ }
+ showModal('Words found',
+  `<p class="stage-summary">Choose a stage, then a level. Definitions load only for the level you open.</p>
+   <div class="stage-grid">${cards.join('')}</div>`);
+ $('modal').querySelectorAll('[data-word-stage]').forEach(btn=>{
+  btn.onclick=()=>openWordStageLevels(Number(btn.dataset.wordStage), byLevel);
  });
+}
+
+function openWordStageLevels(stageIndex, byLevel){
+ const base=STAGES[stageIndex%STAGES.length];
+ const cycle=Math.floor(stageIndex/STAGES.length);
+ const name=cycle?`${base[0]} ${cycle+1}`:base[0];
+ const first=stageIndex*25;
+ const last=stageIndex*25+24;
+ const rows=[];
+ let stageTotal=0;
+ for(let L=first; L<=last; L++){
+  const b=byLevel.get(L);
+  if(!b) continue;
+  const p=b.puzzle.size, x=b.bonus.size, n=p+x;
+  if(!n) continue;
+  stageTotal+=n;
+  rows.push(`<button class="level-row" data-word-level="${L}"><span class="level-row-num">#${L+1}</span><span class="level-row-meta">${p} puzzle · ${x} bonus · ${n} total</span></button>`);
+ }
+ if(!rows.length){
+  showModal(name,'<p>No words recorded in this stage yet.</p><button class="action" id="backWordStages">← All stages</button>');
+  $('modal').querySelector('#backWordStages').onclick=()=>openWordStages(byLevel);
+  return;
+ }
+ showModal(name,
+  `<p class="stage-summary">${stageTotal} word${stageTotal===1?'':'s'} across ${rows.length} level${rows.length===1?'':'s'}. Open a level to load its list and definitions.</p>
+   <div class="level-list">${rows.join('')}</div>
+   <button class="action" id="backWordStages">← All stages</button>`);
+ const m=$('modal');
+ m.querySelectorAll('[data-word-level]').forEach(btn=>{
+  btn.onclick=()=>openWordLevelDetail(Number(btn.dataset.wordLevel), byLevel, stageIndex);
+ });
+ m.querySelector('#backWordStages').onclick=()=>openWordStages(byLevel);
+}
+
+async function openWordLevelDetail(L, byLevel, stageIndex){
+ const b=byLevel.get(L)||{puzzle:new Set(),bonus:new Set()};
+ const puzzle=[...b.puzzle].sort();
+ const bonus=[...b.bonus].sort();
+ const stage=stageForLevel(L);
+ const entries=[
+  ...puzzle.map(w=>({word:w,kind:'puzzle'})),
+  ...bonus.map(w=>({word:w,kind:'bonus'}))
+ ];
+ const bodyHtml=entries.length
+  ? entries.map((e,i)=>`<article class="word-definition rich" data-idx="${i}"><div class="word-def-head"><strong>${esc(e.word.toUpperCase())}</strong><span class="word-level-tag">${e.kind==='bonus'?'Bonus':'Puzzle'}</span></div><span class="word-def-text">…</span></article>`).join('')
+  : '<p>No words on this level.</p>';
+
+ $('modal').innerHTML=`<h2>${esc(stage.name)} · Level ${L+1}</h2>
+  <p class="stage-summary">${puzzle.length} puzzle · ${bonus.length} bonus. Definitions load for this level only.</p>
+  <div class="word-list" id="wordListBody">${bodyHtml}</div>
+  <button class="action" id="backWordLevels">← ${esc(stage.name)}</button>
+  <button class="action primary" id="closemodal">Close</button>
+  <div class="app-version">Wordgrove v${APP_VERSION}</div>`;
+ $('overlay').classList.add('show');
+ $('closemodal').onclick=()=>$('overlay').classList.remove('show');
+ $('backWordLevels').onclick=()=>openWordStageLevels(stageIndex, byLevel);
+
+ // Lazy-load definitions in small concurrent batches to stay responsive
+ const body=$('wordListBody');
+ const unique=[...new Set(entries.map(e=>e.word))];
+ const concurrency=4;
+ let cursor=0;
+ async function worker(){
+  while(cursor<unique.length){
+   const my=cursor++;
+   const w=unique[my];
+   let def;
+   try{ def=await getDefinition(w); }
+   catch{ def=['Definition unavailable']; }
+   const text=Array.isArray(def)?def.join(' · '):String(def||'');
+   body.querySelectorAll(`[data-idx]`).forEach(row=>{
+    const idx=Number(row.dataset.idx);
+    if(entries[idx]&&entries[idx].word===w){
+     const span=row.querySelector('.word-def-text');
+     if(span) span.textContent=text;
+    }
+   });
+  }
+ }
+ await Promise.all(Array.from({length:Math.min(concurrency, unique.length)},()=>worker()));
 }
 
 function spoilerForms(word){
@@ -931,6 +1015,9 @@ function devAutoSolve(){
 }
 
 const CHANGELOG = [
+ {v:'3.5.16', items:[
+  'Home Words found is now Stage → Level → words, so definitions load only for the level you open (much faster with large progress).'
+ ]},
  {v:'3.5.15', items:[
   'Version badge forces update via network-first SW + one-time reload when a new build is installed.',
   'Home Words found list hardened; definitions load without CSS.escape.',
