@@ -1,5 +1,11 @@
-Wordgrove 3.5.13
+Wordgrove 3.5.14
 ================
+
+3.5.14
+- Level Words list is level-scoped.
+- Home Words found shows level for each word.
+- Features & fixes list in settings/menu.
+- Network-first SW: latest build on reopen, progress kept.
 AI-created word puzzle game.
 Live: https://coldgenetics.github.io/Wordgrove/
 

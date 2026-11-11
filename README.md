@@ -2,7 +2,7 @@
 
 AI-created word puzzle game — swipe letters on a wheel, solve crossword-style boards, earn coins from bonus words, and explore themed stages.
 
-**Current version: 3.5.13**
+**Current version: 3.5.14**
 
 Play: [coldgenetics.github.io/Wordgrove](https://coldgenetics.github.io/Wordgrove/)
 
@@ -19,6 +19,12 @@ Play: [coldgenetics.github.io/Wordgrove](https://coldgenetics.github.io/Wordgrov
 ---
 
 ## Changelog
+
+### 3.5.14
+- In-level **Words** list shows only words solved on that level.
+- Home **Words found** lists every solved puzzle/bonus word with the level it was found on.
+- **Features & fixes** button in Sound settings and the game menu (version history).
+- Service worker is **network-first** for `index.html` / `app.js` so reopening the link loads the latest build without clearing site data; progress remains in `localStorage`.
 
 ### 3.5.13
 - README and project docs brought up to date with current version and history.

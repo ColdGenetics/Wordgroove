@@ -1,4 +1,4 @@
-const APP_VERSION = '3.5.13';
+const APP_VERSION = '3.5.14';
 const $ = id => document.getElementById(id);
 const SAVE_KEY = 'wordgrove-v4-save';
 const LETTER_HINT_COST = 25, DEFINITION_HINT_COST = 15, DOUBLE_HINT_COST = 40;
@@ -501,9 +501,77 @@ async function getDefinition(word){
  return ['Definition could not be loaded right now. Try again in a moment — your connection may be fine, but the dictionary service did not respond.'];
 }
 
-function openWordList(){const words=[...new Set(Object.values(state.solvedByLevel).flatMap(a=>a||[]))].sort();showListModal('Words found',words,'All puzzle words you have solved across your adventure.');}
-function openExtras(){const words=[...extras].sort();showListModal('Bonus words',words,'Bonus English words found that are not part of this crossword.');}
-async function showListModal(title,words,subtitle){$('modal').innerHTML=`<h2>${esc(title)}</h2><p>${esc(subtitle)}</p><div class="word-list" id="wordListBody">${words.length?words.map(w=>`<article class="word-definition"><strong>${esc(w.toUpperCase())}</strong><span>Loading definition…</span></article>`).join(''):'<p>No words yet. Keep playing!</p>'}</div><button class="action primary" id="closemodal">Close</button>`;$('overlay').classList.add('show');$('closemodal').onclick=()=>$('overlay').classList.remove('show');const body=$('wordListBody');await Promise.all(words.map(async w=>{const def=await getDefinition(w);const row=[...body.querySelectorAll('.word-definition')].find(el=>el.querySelector('strong')?.textContent===w.toUpperCase());if(row)row.querySelector('span').textContent=def}))}
+/** Words solved on the current level only (in-game Words button). */
+function openWordList(){
+ const words=[...solved].sort();
+ showListModal(
+  'Level words',
+  words,
+  `Puzzle words found on level ${level+1} so far.`,
+  {mode:'level'}
+ );
+}
+/** Bonus words for the current level only. */
+function openExtras(){
+ const words=[...extras].sort();
+ showListModal('Bonus words',words,'Bonus English words found on this level that are not part of the crossword.',{mode:'level'});
+}
+/** All puzzle words ever solved, with level metadata (home Words button). */
+function openGlobalWordList(){
+ const entries=[];
+ const seen=new Map(); // word -> first level index
+ const levelKeys=Object.keys(state.solvedByLevel).map(Number).sort((a,b)=>a-b);
+ for(const L of levelKeys){
+  for(const w of (state.solvedByLevel[L]||[])){
+   if(!seen.has(w)) seen.set(w, L);
+   entries.push({word:w, level:L, kind:'puzzle'});
+  }
+ }
+ // Include bonus words with their levels when available
+ const extraKeys=Object.keys(state.extrasByLevel||{}).map(Number).sort((a,b)=>a-b);
+ for(const L of extraKeys){
+  for(const w of (state.extrasByLevel[L]||[])){
+   entries.push({word:w, level:L, kind:'bonus'});
+  }
+ }
+ entries.sort((a,b)=>a.word.localeCompare(b.word)||a.level-b.level);
+ showRichWordList(
+  'All words found',
+  entries,
+  'Every puzzle and bonus word you have found, with the level it was recorded on.'
+ );
+}
+async function showListModal(title,words,subtitle,opts={}){
+ $('modal').innerHTML=`<h2>${esc(title)}</h2><p>${esc(subtitle)}</p><div class="word-list" id="wordListBody">${words.length?words.map(w=>`<article class="word-definition" data-word="${esc(w)}"><strong>${esc(w.toUpperCase())}</strong><span>Loading definition…</span></article>`).join(''):'<p>No words yet. Keep playing!</p>'}</div><button class="action primary" id="closemodal">Close</button>`;
+ $('overlay').classList.add('show');
+ $('closemodal').onclick=()=>$('overlay').classList.remove('show');
+ const body=$('wordListBody');
+ await Promise.all(words.map(async w=>{
+  const def=await getDefinition(w);
+  const row=body.querySelector(`[data-word="${CSS.escape(w)}"]`);
+  if(row) row.querySelector('span').textContent=Array.isArray(def)?def.join(' · '):def;
+ }));
+}
+async function showRichWordList(title,entries,subtitle){
+ const bodyHtml=entries.length
+  ? entries.map((e,i)=>`<article class="word-definition rich" data-idx="${i}"><div class="word-def-head"><strong>${esc(e.word.toUpperCase())}</strong><span class="word-level-tag">${e.kind==='bonus'?'Bonus · ':''}Level ${e.level+1}</span></div><span class="word-def-text">Loading definition…</span></article>`).join('')
+  : '<p>No words yet. Keep playing!</p>';
+ $('modal').innerHTML=`<h2>${esc(title)}</h2><p class="stage-summary">${esc(subtitle)}</p><div class="word-list" id="wordListBody">${bodyHtml}</div><button class="action primary" id="closemodal">Close</button>`;
+ $('overlay').classList.add('show');
+ $('closemodal').onclick=()=>$('overlay').classList.remove('show');
+ const body=$('wordListBody');
+ // Dedupe definition fetches by word
+ const unique=[...new Set(entries.map(e=>e.word))];
+ const defs={};
+ await Promise.all(unique.map(async w=>{ defs[w]=await getDefinition(w); }));
+ entries.forEach((e,i)=>{
+  const row=body.querySelector(`[data-idx="${i}"]`);
+  if(!row) return;
+  const def=defs[e.word];
+  row.querySelector('.word-def-text').textContent=Array.isArray(def)?def.join(' · '):String(def||'');
+ });
+}
+
 function spoilerForms(word){
  const w=String(word).toLowerCase();
  const forms=new Set([w]);
@@ -690,12 +758,14 @@ function openGameMenu(){
   `<div class="menu-options">
     <button class="action" id="settingsOpen">♫ Sound settings</button>
     <button class="action" id="levelsOpen">✧ Levels</button>
+    <button class="action" id="changelogMenu">Features &amp; fixes</button>
     <button class="action" id="returnHome">⌂ Return to menu</button>
     ${dev?`<button class="action" id="devToolsOpen">⚒ Testing tools</button>`:''}
   </div>`);
  const m=$('modal');
  m.querySelector('#settingsOpen').onclick=openSoundSettings;
  m.querySelector('#levelsOpen').onclick=openLevels;
+ m.querySelector('#changelogMenu').onclick=openChangelog;
  m.querySelector('#returnHome').onclick=showHome;
  const d=m.querySelector('#devToolsOpen');
  if(d) d.onclick=openDevTools;
@@ -771,7 +841,55 @@ function devAutoSolve(){
  }
  say('Level auto-solved');
 }
-function openSoundSettings(){showModal('Sound settings',`<div class="menu-options"><button class="action" id="musicToggle">Music: ${musicOn?'On':'Off'}</button><button class="action" id="effectsToggle">Sounds: ${effectsOn?'On':'Off'}</button></div>`);$('modal').querySelector('#musicToggle').onclick=()=>{toggleMusic();openSoundSettings()};$('modal').querySelector('#effectsToggle').onclick=()=>{toggleEffects();openSoundSettings()}}
+
+const CHANGELOG = [
+ {v:'3.5.14', items:[
+  'In-level Words list shows only words solved on the current level.',
+  'Home “Words found” opens a full log with the level each word was found on (puzzle + bonus).',
+  'Features & fixes list in Sound settings / Game menu.',
+  'Service worker uses network-first for app files so reopening the site loads the latest build without clearing site data; progress stays in localStorage.'
+ ]},
+ {v:'3.5.13', items:[
+  'README and docs track version + changelog.',
+  'Coin icon and count outlined for visibility on every stage background.',
+  'Audio labels: Music / Sounds; both On by default; prefs saved.',
+  'Unique music and sound effects per stage.'
+ ]},
+ {v:'3.5.12', items:[
+  'Level select jumps to the chosen level only (no accidental skip).',
+  'Stage picker opens a per-stage level summary before play.',
+  'Testing tools via ?dev=1 (auto-solve, unlock, jump, reset).'
+ ]},
+ {v:'3.5.11', items:[
+  'Reject acronym, abbreviation, place-name, surname, and slang bonus words.',
+  'Bonus coins: 0 for 2–3 letters, then 1 per letter after 3.',
+  'Larger letter-wheel tiles scaled to avoid overlap.'
+ ]},
+ {v:'3.5.10', items:[
+  'Definition hint reliability fix.'
+ ]},
+ {v:'3.4–3.5', items:[
+  'Crossword layouts, swipe wheel, hints, definitions, extras, stages, PWA support.'
+ ]}
+];
+function openChangelog(){
+ const body=CHANGELOG.map(block=>
+  `<section class="change-block"><h3>v${esc(block.v)}</h3><ul>${block.items.map(i=>`<li>${esc(i)}</li>`).join('')}</ul></section>`
+ ).join('');
+ showModal('Features & fixes',`<div class="changelog">${body}</div>`);
+}
+
+function openSoundSettings(){
+ showModal('Sound settings',`<div class="menu-options">
+  <button class="action" id="musicToggle">Music: ${musicOn?'On':'Off'}</button>
+  <button class="action" id="effectsToggle">Sounds: ${effectsOn?'On':'Off'}</button>
+  <button class="action" id="changelogOpen">Features &amp; fixes</button>
+ </div>`);
+ const m=$('modal');
+ m.querySelector('#musicToggle').onclick=()=>{toggleMusic();openSoundSettings()};
+ m.querySelector('#effectsToggle').onclick=()=>{toggleEffects();openSoundSettings()};
+ m.querySelector('#changelogOpen').onclick=openChangelog;
+}
 
 // Original, gentle synthesized ambience and tiny nature-inspired interaction sounds.
 function audio(){if(!audioCtx){const C=window.AudioContext||window.webkitAudioContext;if(!C)return null;audioCtx=new C()}if(audioCtx.state==='suspended')audioCtx.resume();return audioCtx}
@@ -907,7 +1025,7 @@ function toggleMusic(){
 }
 function toggleEffects(){ effectsOn=!effectsOn; saveAudioPrefs(); }
 
-$('playBtn').addEventListener('click',startGame);$('homeMenuBtn').addEventListener('click',openGameMenu);$('gameMenuBtn').addEventListener('click',openGameMenu);$('levelsBtn').addEventListener('click',openLevels);$('shuffle').addEventListener('click',shuffle);$('hint').addEventListener('click',openHints);$('wordListBtn').addEventListener('click',openWordList);$('extrasBtn').addEventListener('click',openExtras);$('homeHelp').addEventListener('click',()=>showModal('How to play','Swipe across the letter wheel to spell words. Tap a crossword word to select it for definition hints or a letter reveal. Solve every crossword word to finish a level. Bonus words earn coins.'));
+$('playBtn').addEventListener('click',startGame);$('homeMenuBtn').addEventListener('click',openGameMenu);$('gameMenuBtn').addEventListener('click',openGameMenu);$('levelsBtn').addEventListener('click',openLevels);if($('globalWordsBtn'))$('globalWordsBtn').addEventListener('click',openGlobalWordList);$('shuffle').addEventListener('click',shuffle);$('hint').addEventListener('click',openHints);$('wordListBtn').addEventListener('click',openWordList);$('extrasBtn').addEventListener('click',openExtras);$('homeHelp').addEventListener('click',()=>showModal('How to play','Swipe across the letter wheel to spell words. Tap a crossword word to select it for definition hints or a letter reveal. Solve every crossword word to finish a level. Bonus words earn coins.'));
 document.addEventListener('visibilitychange',()=>{if(document.hidden)stopMusicForBackground();else resumeMusic()});window.addEventListener('pagehide',stopMusicForBackground);window.addEventListener('pageshow',()=>{if(!document.hidden)resumeMusic()});
 document.addEventListener('click',e=>{if(e.target.closest('button')&&!e.target.closest('.letter'))playEffect('button')});
 $('wheel').addEventListener('pointerdown',handleDown);document.addEventListener('pointermove',handleMove,{passive:false});document.addEventListener('pointerup',handleUp);document.addEventListener('pointercancel',handleUp);

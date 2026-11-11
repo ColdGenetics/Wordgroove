@@ -280,6 +280,17 @@ body.in-game .top{display:none}
   text-shadow:0 1px 0 #000c,0 0 8px #0007 !important;
 }
 
+
+.word-def-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.word-level-tag{font-size:10px;font-weight:850;letter-spacing:.4px;text-transform:uppercase;color:var(--gold);background:#f3c66a22;border:1px solid #f3c66a55;border-radius:999px;padding:3px 8px;white-space:nowrap}
+.word-def-text{display:block;font-size:12px;color:var(--cream);line-height:1.4;margin-top:4px}
+.word-definition.rich{padding:11px 4px}
+.changelog{max-height:52vh;overflow:auto;text-align:left;padding-right:4px}
+.change-block{margin:0 0 14px}
+.change-block h3{margin:0 0 6px;color:#fff0c6;font-size:14px}
+.change-block ul{margin:0;padding-left:1.15em;color:var(--cream);font-size:13px;line-height:1.45}
+.change-block li{margin:0 0 4px}
+
 </style>
 </head>
 <body>
@@ -292,7 +303,7 @@ body.in-game .top{display:none}
       <h1>Wordgrove</h1>
       <p>Swipe letters, discover words, and watch your vocabulary grow.</p>
     </div>
-    <div class="app-version" id="homeVersion">Wordgrove v3.5.13</div>
+    <div class="app-version" id="homeVersion">Wordgrove v3.5.14</div>
     <div class="home-stats">
       <div class="stat-card"><strong id="homeLevel">1</strong><span>Current level</span></div>
       <div class="stat-card"><strong id="homeCoins">50</strong><span>Coins</span></div>
@@ -300,6 +311,7 @@ body.in-game .top{display:none}
     </div>
     <button class="action primary play-btn" id="playBtn">▶ &nbsp; Play</button>
     <button class="action" id="levelsBtn">✧ &nbsp; Levels</button>
+    <button class="action" id="globalWordsBtn">▤ &nbsp; Words found</button>
     <button class="home-help" id="homeHelp" title="Help">How to play · Coins · Hints</button>
   </section>
 
