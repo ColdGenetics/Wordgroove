@@ -291,6 +291,9 @@ body.in-game .top{display:none}
 .change-block ul{margin:0;padding-left:1.15em;color:var(--cream);font-size:13px;line-height:1.45}
 .change-block li{margin:0 0 4px}
 
+
+.stat-btn{cursor:pointer;font:inherit;color:inherit;appearance:none}
+.stat-btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 </style>
 </head>
 <body>
@@ -303,11 +306,11 @@ body.in-game .top{display:none}
       <h1>Wordgrove</h1>
       <p>Swipe letters, discover words, and watch your vocabulary grow.</p>
     </div>
-    <div class="app-version" id="homeVersion">Wordgrove v3.5.14</div>
+    <div class="app-version" id="homeVersion">Wordgrove v3.5.15</div>
     <div class="home-stats">
       <div class="stat-card"><strong id="homeLevel">1</strong><span>Current level</span></div>
       <div class="stat-card"><strong id="homeCoins">50</strong><span>Coins</span></div>
-      <div class="stat-card"><strong id="homeWords">0</strong><span>Words found</span></div>
+      <button type="button" class="stat-card stat-btn" id="homeWordsCard" title="View all words found"><strong id="homeWords">0</strong><span>Words found</span></button>
     </div>
     <button class="action primary play-btn" id="playBtn">▶ &nbsp; Play</button>
     <button class="action" id="levelsBtn">✧ &nbsp; Levels</button>

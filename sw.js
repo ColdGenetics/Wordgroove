@@ -1,4 +1,4 @@
-const CACHE = 'wordgrove-v15';
+const CACHE = 'wordgrove-v16';
 const SHELL = ['./','./index.html','./app.js','./sw.js','./manifest.webmanifest'];
 const ASSETS = ['./levels.json','./dictionary.json','./definitions.json','./icon.svg','./meadow.svg','./field.svg','./moonlit-forest.svg','./waterfall.svg','./autumn-grove.svg','./crystal-lake.svg','./misty-highlands.svg','./sunset-valley.svg'];
 const FILES = SHELL.concat(ASSETS);
@@ -16,16 +16,19 @@ self.addEventListener('activate', event => {
   })());
 });
 
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
+});
+
 function isShell(url) {
   const path = url.pathname.replace(/\/+$/, '') || '/';
-  const base = self.registration.scope.replace(self.location.origin, '').replace(/\/+$/, '') || '';
-  const rel = path.startsWith(base) ? path.slice(base.length) || '/' : path;
-  const name = rel.split('/').pop() || 'index.html';
+  const name = path.split('/').pop() || 'index.html';
   return (
-    rel === '/' ||
+    path.endsWith('/') ||
     name === 'index.html' ||
     name === 'app.js' ||
     name === 'sw.js' ||
+    name.startsWith('sw.js') ||
     name === 'manifest.webmanifest'
   );
 }
@@ -35,15 +38,17 @@ self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
 
-  // App shell: network-first so a normal reopen picks up new builds.
-  // Offline fallback uses cache. Progress lives in localStorage, not the SW cache.
   if (isShell(url) || event.request.mode === 'navigate') {
     event.respondWith((async () => {
       try {
-        const response = await fetch(event.request);
+        const response = await fetch(event.request, { cache: 'no-cache' });
         if (response && response.ok) {
           const cache = await caches.open(CACHE);
           cache.put(event.request, response.clone());
+          // Also store clean URLs without query
+          if (url.pathname.endsWith('app.js') || url.pathname.endsWith('index.html')) {
+            cache.put(url.pathname, response.clone());
+          }
         }
         return response;
       } catch {
@@ -55,7 +60,6 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Static puzzle data / art: cache-first, refresh in background
   event.respondWith((async () => {
     const cached = await caches.match(event.request);
     const network = fetch(event.request).then(response => {

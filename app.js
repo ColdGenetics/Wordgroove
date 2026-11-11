@@ -1,30 +1,84 @@
-const APP_VERSION = '3.5.14';
+const APP_VERSION = '3.5.15';
 const $ = id => document.getElementById(id);
 const SAVE_KEY = 'wordgrove-v4-save';
 const LETTER_HINT_COST = 25, DEFINITION_HINT_COST = 15, DOUBLE_HINT_COST = 40;
 const WORD_REWARD = 5, LEVEL_REWARD = 20;
 const TWO_LETTER_WORDS = new Set('am an as at be by do go he if in is it me my no of oh on or ox so to up us we'.split(' '));
 const REJECTED_BONUS_WORDS = new Set([
-  // acronyms / initialisms / abbreviations
-  'eal','lae','fbi','tra','la','doc','mfg','str','avg','etc','inc','ltd','mrs','mr','ms','dr','st','rd','ave','dept','gov','govt','corp','llc','vs','etc','aka','diy','asap','rsvp','tba','tbd','faq','gps','usb','pdf','html','css','js','api','url','http','https','www','usa','uk','eu','un','nato','nasa','cia','nsa','irs','dna','rna','hiv','aids','covid','pc','tv','dvd','cd','hd','sd','ui','ux','ceo','cfo','cto','hr','pr','qa','id','iq','eq','ok','lol','omg','btw','imo','fyi','brb','ttyl','afaik','irl','dm','pm','am','bc','ad','ph','d','b','c','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z',
-  // given examples + similar
-  'lare','roat','stor','stra','cali','peru','shiv','doc',
-  // common place-name short forms / places that appear as short words
-  'nyc','la','sf','dc','uk','usa','eu','asia','rome','paris','tokyo','oslo','bern','lima','quito','cairo','delhi','miami','dallas','boston','seattle','denver','austin','phoenix','atlanta','chicago','houston','london','berlin','madrid','moscow','sydney','dublin','ottawa','beijing','seoul','hanoi','manila','jakarta','bangkok','dubai','riyadh','tehran','baghdad','nairobi','lagos','accra','havana','quito','bogota','santiago','buenos','aires',
-  // surnames / proper-name-ish that often slip in
-  'smith','jones','brown','davis','miller','wilson','moore','taylor','anderson','thomas','jackson','white','harris','martin','garcia','clark','lewis','lee','walker','hall','allen','young','king','wright','scott','green','baker','adams','nelson','hill','ramirez','campbell','mitchell','roberts','carter','phillips','evans','turner','torres','parker','collins','edwards','stewart','flores','morris','nguyen','murphy','rivera','cook','rogers','morgan','peterson','cooper','reed','bailey','bell','gomez','kelly','howard','ward','cox','diaz','richardson','wood','watson','brooks','bennett','gray','james','reyes','cruz','hughes','price','myers','long','foster','sanders','ross','morales','powell','sullivan','russell','ortiz','jenkins','gutierrez','perry','butler','barnes','fisher',
-  // slang / informal that should not earn bonus coins in this game
-  'shiv','yeet','sus','cap','bet','bruh','fam','lit','slay','rizz','bussin','mid','stan','simp','based','cringe','noob','pwn','lmao','rofl','thicc','smol','chonky','boomer','zoomer','millenial','genx','genz','boomer','sus','cap'
-].map(w=>w.toLowerCase()));
+  // User examples + close variants
+  'eal','lae','fbi','tra','la','doc','lare','roat','stor','mfg','stra','cali','peru','shiv','str',
+  // Titles / honorifics / abbreviations
+  'mr','mrs','ms','dr','st','rd','ave','dept','gov','govt','corp','llc','inc','ltd','vs','aka','diy',
+  'asap','rsvp','tba','tbd','faq','gps','usb','pdf','html','css','js','api','url','https','www',
+  'avg','est','approx','misc','qty','amt','no','nos','vol','ed','eds','pp','ch',
+  // Agencies / orgs / tech initialisms
+  'usa','uk','eu','un','nato','nasa','cia','nsa','dna','rna','hiv','aids','covid','pc','tv','dvd',
+  'cd','hd','sd','ui','ux','ceo','cfo','cto','hr','pr','qa','id','iq','eq','ok','vpn','cpu','gpu',
+  'ssd','hdd','lcd','oled','wifi','lan','wan','ios','os','app','sms','mms','atm','ssn',
+  // Chat slang
+  'lol','omg','btw','imo','fyi','brb','ttyl','afaik','irl','dm','pm','yeet','sus','ghosting',
+  'gonna','wanna','gotta','kinda','sorta','yeah','nah','yup','bae','tbh','idk','imo','lmao','rofl',
+  // Common place names (countries / major cities)
+  'asia','rome','paris','tokyo','oslo','bern','lima','quito','cairo','delhi','miami','dallas','boston',
+  'seattle','denver','austin','phoenix','atlanta','chicago','houston','london','berlin','madrid','moscow',
+  'sydney','dublin','ottawa','beijing','seoul','hanoi','jakarta','bangkok','dubai','riyadh',
+  'tehran','baghdad','nairobi','lagos','accra','havana','bogota','santiago','mexico','canada','china',
+  'india','japan','korea','spain','france','italy','germany','poland','ireland','scotland','wales',
+  'england','russia','ukraine','brazil','argentina','chile','cuba','egypt','kenya','ghana','nigeria',
+  'vietnam','thailand','malaysia','indonesia','philippines','australia','nyc','sf','dc','la','cali',
+  'ohio','texas','florida','oregon','utah','idaho','iowa','hawaii','alaska','nevada','georgia','virginia',
+  // Common given names / surnames that leak via online dict
+  'smith','jones','brown','davis','miller','wilson','moore','taylor','anderson','thomas','jackson',
+  'white','harris','martin','garcia','clark','lewis','lee','walker','hall','allen','young','king',
+  'wright','scott','green','baker','adams','nelson','hill','campbell','mitchell','roberts','carter',
+  'phillips','evans','turner','parker','collins','edwards','stewart','morris','murphy','cook','rogers',
+  'morgan','peterson','cooper','reed','bailey','bell','kelly','howard','ward','richardson','wood',
+  'watson','brooks','bennett','gray','james','hughes','price','myers','long','foster','sanders','ross',
+  'powell','sullivan','russell','jenkins','perry','butler','barnes','john','mary','david','mike','steve',
+  'tom','jim','joe','anna','lisa','kate','paul','luke','jack','jill','sue','nancy','helen',
+  'alice','bruce','wayne','kevin','sarah','susan','emily','emma','olivia','sophia','daniel','matthew',
+  'andrew','ryan','justin','brian','jason','jeffrey','timothy','anthony','charles','joseph','michael',
+  'william','robert','richard','thomas','chris','alex','ben','mia','ava','zoe',
+  // Fiction / celebrity tokens users may try
+  'gandalf','frodo','bilbo','sauron','harry','potter','elon','musk','bezos','gates','jobs','biden',
+  'trump','obama','clinton','putin'
+]);
+
+/** Common English function/content words allowed even at short length */
+const ALLOWED_SHORT = new Set(
+  ('am an as at be by do go he if in is it me my no of oh on or ox so to up us we '
+   + 'the and for are but not you all can had her was one our out day get has him his how '
+   + 'man new now old see way who boy did let put say she too use dad mom sun sky sea '
+   + 'run red big few top low end set cut hit sit win yes yet own off odd ego era ice age '
+   + 'art arm ash ask ape ant any apt arc ate awe axe aye bad bag ban bar bat bay bed bee '
+   + 'beg bet bib bid big bin bit boa bog bow box bud bug bun bus buy bye cab can cap car '
+   + 'cat cob cod cog cop cot cow cry cub cup cut dab dam den dew did dig dim din dip dog '
+   + 'dot dry dub due dug duo dye ear eat eel egg ego elf elk elm emu end era eve ewe eye '
+   + 'fad fan far fat fax fed fee few fib fig fin fir fit fix flu fly foe fog for fox fro '
+   + 'fry fun fur gab gag gap gas gay gel gem get gig gin gnu god got gum gun gut guy gym '
+   + 'had ham has hat hay hem hen her hew hid him hip his hit hob hod hoe hog hop hot how '
+   + 'hub hue hug hum hut ice ilk ill imp ink inn ion ire irk its ivy jab jag jam jar jaw '
+   + 'jay jet jig job jog jot joy jug jut keg ken key kid kin kit lab lad lag lap law lax '
+   + 'lay led leg let lid lie lip lit lob log lot low lye mad man map mat may men met mid '
+   + 'mix mob mod mop mow mud mug nab nag nap net new nib nil nip nit nod nor not now nub '
+   + 'nun nut oaf oak oar oat odd ode off oft ohm oil old one orb ore our out ova owe owl '
+   + 'own pad pal pan pap par pat paw pay pea peg pen pep per pet pew pie pig pin pit ply '
+   + 'pod pop pot pox pro pry pub pug pun pup put rag ram ran rap rat raw ray red ref rep '
+   + 'rib rid rig rim rip rob rod roe rot row rub rug rum run rut rye sad sag sap sat saw '
+   + 'say sea set sew she shy sin sip sir sis sit six ski sky sly sob sod son sop sot sow '
+   + 'soy spa spy sty sub sum sun sup tab tad tag tan tap tar tat taw tax tea ted tee ten '
+   + 'the thy tic tie tin tip toe tog ton too top tot tow toy try tub tug tux two ugh urn '
+   + 'use van vat vet vex via vie vim vow wad wag war was wax way web wed wee wet who why '
+   + 'wig win wit woe wok won woo wow yak yam yap yaw yea yes yet yew yin yip you yow zap '
+   + 'zen zig zip zoo').split(/\s+/)
+);
 
 function looksLikeAcronymOrInitialism(word){
-  const w=String(word).toLowerCase();
-  if(w.length<2||w.length>5) return false;
-  // all consonants (or mostly) short tokens often are initialisms: fbi, tra, mfg, str
-  const vowels=w.replace(/[^aeiouy]/g,'');
-  if(w.length>=3 && vowels.length===0) return true;
-  if(w.length===2 && vowels.length===0) return true;
-  // repeated letter pairs like aa, bb rarely real bonus words in this context
+  const w=String(word).toLowerCase().trim();
+  if(w.length<2) return true;
+  // All consonants of length 2–4 often initialisms (fbi, html-ish short forms) unless allowlisted
+  if(w.length<=4 && !/[aeiouy]/.test(w) && !ALLOWED_SHORT.has(w) && !TWO_LETTER_WORDS.has(w)) return true;
+  // Repeated same letter pairs like xx
   if(/^(.)\1$/.test(w)) return true;
   return false;
 }
@@ -34,11 +88,41 @@ function isRejectedBonusWord(word){
   if(!w) return true;
   if(REJECTED_BONUS_WORDS.has(w)) return true;
   if(looksLikeAcronymOrInitialism(w)) return true;
-  // Single-letter or pure digit noise
   if(/^[0-9]+$/.test(w)) return true;
-  // Hyphenated / dotted abbreviations
-  if(/[.\-]/.test(w)) return true;
+  if(/[.\-\s']/.test(w)) return true;
+  // Very short non-allowlisted tokens
+  if(w.length<=2 && !TWO_LETTER_WORDS.has(w) && !ALLOWED_SHORT.has(w)) return true;
   return false;
+}
+
+/** True when API payload looks like a proper noun / name / place rather than a common word. */
+function definitionLooksProper(data){
+  try{
+    if(!Array.isArray(data) || !data.length) return false;
+    const entry=data[0];
+    const word=String(entry.word||'');
+    // Dictionary API capitalizes some proper nouns in the word field inconsistently;
+    // rely more on meanings.
+    let common=0, proper=0, total=0;
+    for(const meaning of entry.meanings||[]){
+      const pos=String(meaning.partOfSpeech||'').toLowerCase();
+      for(const def of meaning.definitions||[]){
+        const text=String(def.definition||'');
+        if(!text) continue;
+        total++;
+        if(/proper noun|family name|surname|given name|first name|last name|place name|city in|capital of|country in|county in|male given|female given|hebrew|surname of/i.test(text) || pos==='name'){
+          proper++;
+        } else {
+          common++;
+        }
+      }
+    }
+    if(total===0) return false;
+    // Reject when every sense is proper-noun flavored, or majority proper with no solid common sense
+    if(common===0 && proper>0) return true;
+    if(proper>=2 && common===0) return true;
+    return false;
+  }catch{ return false; }
 }
 
 let levels=[], dictionary=new Set(), definitions={}, level=0, rack=[], picked=[], solved=new Set(), revealed={}, extras=new Set(), selectedWord=null;
@@ -308,7 +392,7 @@ async function lookupEnglishWord(word){
   clearTimeout(timer);
   if(r.ok){
    const data=await r.json();
-   if(Array.isArray(data)&&data.length&&data[0].meanings){ remember(); return true; }
+   if(Array.isArray(data)&&data.length&&data[0].meanings){ if(definitionLooksProper(data)) return false; remember(); return true; }
   }
  }catch(e){}
  try{
@@ -318,7 +402,11 @@ async function lookupEnglishWord(word){
   clearTimeout(timer);
   if(r.ok){
    const data=await r.json();
-   if(Array.isArray(data)&&data[0]&&data[0].word===key&&Array.isArray(data[0].defs)&&data[0].defs.length){ remember(); return true; }
+   if(Array.isArray(data)&&data[0]&&data[0].word===key&&Array.isArray(data[0].defs)&&data[0].defs.length){
+    const defs=data[0].defs.join(' ');
+    if(/proper noun|family name|surname|given name|city in|capital of|country in/i.test(defs)) return false;
+    remember(); return true;
+   }
   }
  }catch(e){}
  return false;
@@ -548,7 +636,7 @@ async function showListModal(title,words,subtitle,opts={}){
  const body=$('wordListBody');
  await Promise.all(words.map(async w=>{
   const def=await getDefinition(w);
-  const row=body.querySelector(`[data-word="${CSS.escape(w)}"]`);
+  const row=[...body.querySelectorAll("[data-word]")].find(el=>el.getAttribute("data-word")===w);
   if(row) row.querySelector('span').textContent=Array.isArray(def)?def.join(' · '):def;
  }));
 }
@@ -843,6 +931,12 @@ function devAutoSolve(){
 }
 
 const CHANGELOG = [
+ {v:'3.5.15', items:[
+  'Version badge forces update via network-first SW + one-time reload when a new build is installed.',
+  'Home Words found list hardened; definitions load without CSS.escape.',
+  'Stricter bonus-word filter: expanded name/place/slang blocklist; online dictionary rejects proper-noun-only entries.',
+  'Stage audio redesigned around real-world themes (birds, wind, water, leaves, owls) instead of pitch-shifted clones.'
+ ]},
  {v:'3.5.14', items:[
   'In-level Words list shows only words solved on the current level.',
   'Home “Words found” opens a full log with the level each word was found on (puzzle + bonus).',
@@ -893,112 +987,241 @@ function openSoundSettings(){
 
 // Original, gentle synthesized ambience and tiny nature-inspired interaction sounds.
 function audio(){if(!audioCtx){const C=window.AudioContext||window.webkitAudioContext;if(!C)return null;audioCtx=new C()}if(audioCtx.state==='suspended')audioCtx.resume();return audioCtx}
+// ---- Stage-themed audio (procedural real-world-inspired beds & cues) ----
+function noiseBuffer(seconds=1){
+ const c=audio(); if(!c) return null;
+ const n=Math.floor(c.sampleRate*seconds);
+ const buf=c.createBuffer(1,n,c.sampleRate);
+ const data=buf.getChannelData(0);
+ for(let i=0;i<n;i++) data[i]=Math.random()*2-1;
+ return buf;
+}
+function playNoiseBurst({duration=0.2, gain=0.03, type='bandpass', freq=1200, q=4, attack=0.01, startAt=0}={}){
+ const c=audio(); if(!c) return;
+ const buf=noiseBuffer(Math.max(duration,0.05)); if(!buf) return;
+ const src=c.createBufferSource(); src.buffer=buf;
+ const filter=c.createBiquadFilter(); filter.type=type; filter.frequency.value=freq; filter.Q.value=q;
+ const g=c.createGain();
+ const t0=c.currentTime+startAt;
+ g.gain.setValueAtTime(0.0001,t0);
+ g.gain.exponentialRampToValueAtTime(gain,t0+attack);
+ g.gain.exponentialRampToValueAtTime(0.0001,t0+duration);
+ src.connect(filter); filter.connect(g); g.connect(c.destination);
+ src.start(t0); src.stop(t0+duration+0.02);
+}
+function playTone({freq=440, duration=0.2, type='sine', gain=0.03, attack=0.01, detune=0, startAt=0, slideTo=null}={}){
+ const c=audio(); if(!c) return;
+ const o=c.createOscillator(), g=c.createGain();
+ o.type=type; o.frequency.value=freq; o.detune.value=detune;
+ const t0=c.currentTime+startAt;
+ g.gain.setValueAtTime(0.0001,t0);
+ g.gain.exponentialRampToValueAtTime(gain,t0+attack);
+ g.gain.exponentialRampToValueAtTime(0.0001,t0+duration);
+ if(slideTo!=null) o.frequency.exponentialRampToValueAtTime(Math.max(40,slideTo), t0+duration*0.9);
+ o.connect(g); g.connect(c.destination);
+ o.start(t0); o.stop(t0+duration+0.02);
+}
+
 function playEffect(kind='button'){
  if(!effectsOn) return;
- const c=audio(); if(!c) return;
- const now=c.currentTime;
  const stage=document.body.dataset.stage||'meadow';
- // Distinct timbre, pitch center, and envelope per stage
- const profiles={
-  'meadow':         {type:'sine',     base:{success:1180,letter:1320,button:780,other:520}, detune:0,   bright:1.55, gain:0.028, attack:0.018, decay:0.17},
-  'field':          {type:'triangle', base:{success:980, letter:1100,button:640,other:440}, detune:12,  bright:1.35, gain:0.030, attack:0.022, decay:0.20},
-  'moonlit-forest': {type:'sine',     base:{success:720, letter:860, button:480,other:360}, detune:-8,  bright:1.25, gain:0.022, attack:0.035, decay:0.28},
-  'waterfall':      {type:'sawtooth', base:{success:1400,letter:1550,button:900,other:600}, detune:18,  bright:1.70, gain:0.018, attack:0.012, decay:0.14},
-  'autumn-grove':   {type:'triangle', base:{success:1050,letter:1200,button:700,other:480}, detune:-14, bright:1.40, gain:0.026, attack:0.025, decay:0.22},
-  'crystal-lake':   {type:'sine',     base:{success:1560,letter:1720,button:980,other:640}, detune:6,   bright:1.85, gain:0.024, attack:0.015, decay:0.16},
-  'misty-highlands':{type:'triangle', base:{success:820, letter:940, button:560,other:400}, detune:-20, bright:1.30, gain:0.025, attack:0.040, decay:0.30},
-  'sunset-valley':  {type:'sine',     base:{success:1120,letter:1280,button:760,other:500}, detune:10,  bright:1.50, gain:0.027, attack:0.020, decay:0.19}
- };
- const p=profiles[stage]||profiles.meadow;
- const f0=(p.base[kind]||p.base.other)+p.detune;
- const osc=c.createOscillator(), gain=c.createGain();
- osc.type=p.type;
- osc.frequency.setValueAtTime(Math.max(80,f0), now);
- const endF=kind==='button'?Math.max(60,f0*0.48):Math.max(90,f0*p.bright);
- osc.frequency.exponentialRampToValueAtTime(endF, now+(kind==='button'?0.18:0.11));
- gain.gain.setValueAtTime(0.0001, now);
- gain.gain.exponentialRampToValueAtTime(kind==='success'?p.gain*1.25:p.gain, now+p.attack);
- gain.gain.exponentialRampToValueAtTime(0.0001, now+(kind==='button'?0.22:p.decay));
- // Soft low-pass so harsher waveforms stay pleasant
- const filter=c.createBiquadFilter();
- filter.type='lowpass';
- filter.frequency.value=stage==='waterfall'?3200:stage==='crystal-lake'?4200:2800;
- osc.connect(filter); filter.connect(gain); gain.connect(c.destination);
- osc.start(now); osc.stop(now+(kind==='button'?0.24:p.decay+0.04));
- if(kind==='success'){
-  for(let j=0;j<2;j++){
-   const o=c.createOscillator(), g=c.createGain(), t0=now+0.06+j*0.13;
-   o.type=p.type;
-   const ff=f0*(1.15-j*0.12);
-   o.frequency.setValueAtTime(ff, t0);
-   o.frequency.exponentialRampToValueAtTime(ff*1.25, t0+0.09);
-   g.gain.setValueAtTime(0.0001, t0);
-   g.gain.linearRampToValueAtTime(p.gain*0.7, t0+0.02);
-   g.gain.exponentialRampToValueAtTime(0.0001, t0+0.18);
-   o.connect(g).connect(c.destination);
-   o.start(t0); o.stop(t0+0.2);
+ // Interaction cues shaped like the stage's world
+ if(kind==='letter'){
+  if(stage==='meadow'){ // short bird-like chirp
+   playTone({freq:1800+Math.random()*400, duration:0.08, type:'sine', gain:0.03, slideTo:2400+Math.random()*300});
+   playTone({freq:2200, duration:0.05, type:'sine', gain:0.015, startAt:0.06, slideTo:1600});
+  } else if(stage==='field'){ // soft cricket tick
+   playNoiseBurst({duration:0.04, gain:0.02, freq:4500, q:8, type:'bandpass'});
+   playTone({freq:3200, duration:0.03, type:'square', gain:0.008});
+  } else if(stage==='moonlit-forest'){ // soft wood-knock / owl soft note
+   playTone({freq:220+Math.random()*40, duration:0.12, type:'triangle', gain:0.03});
+   playNoiseBurst({duration:0.06, gain:0.012, freq:800, q:2, type:'lowpass'});
+  } else if(stage==='waterfall'){ // water drip
+   playNoiseBurst({duration:0.09, gain:0.025, freq:2400, q:3, type:'bandpass'});
+   playTone({freq:900, duration:0.07, type:'sine', gain:0.012, slideTo:500});
+  } else if(stage==='autumn-grove'){ // leaf crunch
+   playNoiseBurst({duration:0.1, gain:0.035, freq:1800, q:1.2, type:'bandpass'});
+   playNoiseBurst({duration:0.06, gain:0.02, freq:3200, q:2, type:'highpass', startAt:0.03});
+  } else if(stage==='crystal-lake'){ // glass/water plink
+   playTone({freq:1400+Math.random()*200, duration:0.18, type:'sine', gain:0.028, slideTo:1100});
+   playTone({freq:2100, duration:0.1, type:'sine', gain:0.012, startAt:0.02});
+  } else if(stage==='misty-highlands'){ // airy breath
+   playNoiseBurst({duration:0.14, gain:0.02, freq:600, q:0.8, type:'bandpass'});
+   playTone({freq:320, duration:0.1, type:'sine', gain:0.01});
+  } else { // sunset-valley: warm soft ping
+   playTone({freq:680, duration:0.12, type:'sine', gain:0.028, slideTo:520});
+   playTone({freq:980, duration:0.08, type:'triangle', gain:0.012, startAt:0.04});
+  }
+  return;
+ }
+ if(kind==='button'){
+  if(stage==='waterfall'||stage==='crystal-lake'){
+   playNoiseBurst({duration:0.08, gain:0.02, freq:2000, q:2, type:'bandpass'});
+   playTone({freq:700, duration:0.08, type:'sine', gain:0.02, slideTo:420});
+  } else if(stage==='autumn-grove'){
+   playNoiseBurst({duration:0.09, gain:0.03, freq:1600, q:1.5, type:'bandpass'});
+  } else if(stage==='moonlit-forest'||stage==='misty-highlands'){
+   playTone({freq:180, duration:0.1, type:'triangle', gain:0.025});
+  } else {
+   playTone({freq:720, duration:0.09, type:'sine', gain:0.025, slideTo:380});
+  }
+  return;
+ }
+ // success
+ if(stage==='meadow'){
+  playTone({freq:1600, duration:0.1, type:'sine', gain:0.03, slideTo:2200});
+  playTone({freq:2000, duration:0.1, type:'sine', gain:0.025, startAt:0.08, slideTo:2600});
+  playTone({freq:2400, duration:0.12, type:'sine', gain:0.02, startAt:0.16, slideTo:1800});
+ } else if(stage==='field'){
+  for(let i=0;i<4;i++) playNoiseBurst({duration:0.03, gain:0.018, freq:4000+i*200, q:10, type:'bandpass', startAt:i*0.05});
+  playTone({freq:1200, duration:0.15, type:'triangle', gain:0.02, startAt:0.1});
+ } else if(stage==='moonlit-forest'){
+  playTone({freq:280, duration:0.25, type:'sine', gain:0.035, slideTo:220});
+  playTone({freq:220, duration:0.3, type:'sine', gain:0.03, startAt:0.2, slideTo:180});
+ } else if(stage==='waterfall'){
+  playNoiseBurst({duration:0.25, gain:0.04, freq:1800, q:0.7, type:'bandpass'});
+  playTone({freq:600, duration:0.2, type:'sine', gain:0.02, startAt:0.05, slideTo:900});
+ } else if(stage==='autumn-grove'){
+  playNoiseBurst({duration:0.18, gain:0.04, freq:1400, q:1, type:'bandpass'});
+  playNoiseBurst({duration:0.12, gain:0.03, freq:2800, q:1.5, type:'highpass', startAt:0.08});
+  playTone({freq:520, duration:0.2, type:'triangle', gain:0.02, startAt:0.05});
+ } else if(stage==='crystal-lake'){
+  playTone({freq:1200, duration:0.25, type:'sine', gain:0.03});
+  playTone({freq:1800, duration:0.2, type:'sine', gain:0.022, startAt:0.06});
+  playTone({freq:2400, duration:0.18, type:'sine', gain:0.016, startAt:0.12});
+ } else if(stage==='misty-highlands'){
+  playNoiseBurst({duration:0.35, gain:0.03, freq:400, q:0.6, type:'bandpass'});
+  playTone({freq:240, duration:0.3, type:'sine', gain:0.025, slideTo:180});
+ } else {
+  playTone({freq:540, duration:0.2, type:'sine', gain:0.03, slideTo:720});
+  playTone({freq:720, duration:0.22, type:'triangle', gain:0.025, startAt:0.1, slideTo:900});
+ }
+}
+
+let musicChord=0;
+let ambientNodes=[]; // active loop nodes to stop on stage change
+
+function stopAmbientNodes(){
+ for(const n of ambientNodes){
+  try{ n.stop?.(); }catch{}
+  try{ n.disconnect?.(); }catch{}
+ }
+ ambientNodes=[];
+}
+
+function startStageAmbient(){
+ // Continuous bed layered under chord stabs — unique character per stage
+ if(!musicOn) return;
+ const c=audio(); if(!c) return;
+ const stage=document.body.dataset.stage||'meadow';
+ const now=c.currentTime;
+
+ function addNoiseLoop({gain=0.008, freq=800, q=1, type='bandpass', lfoRate=0.1, lfoDepth=0.004}={}){
+  const buf=noiseBuffer(2); if(!buf) return;
+  const src=c.createBufferSource(); src.buffer=buf; src.loop=true;
+  const filter=c.createBiquadFilter(); filter.type=type; filter.frequency.value=freq; filter.Q.value=q;
+  const g=c.createGain(); g.gain.value=gain;
+  // gentle amplitude sway
+  const lfo=c.createOscillator(); const lfoG=c.createGain();
+  lfo.frequency.value=lfoRate; lfoG.gain.value=lfoDepth;
+  lfo.connect(lfoG); lfoG.connect(g.gain);
+  src.connect(filter); filter.connect(g); g.connect(c.destination);
+  src.start(now); lfo.start(now);
+  ambientNodes.push(src,lfo);
+ }
+
+ if(stage==='meadow'){
+  // soft air + occasional chirps handled in musicNote
+  addNoiseLoop({gain:0.006, freq:1200, q:0.7, type:'bandpass', lfoRate:0.08, lfoDepth:0.003});
+ } else if(stage==='field'){
+  // open air, higher insect band
+  addNoiseLoop({gain:0.007, freq:3500, q:2, type:'bandpass', lfoRate:0.15, lfoDepth:0.003});
+  addNoiseLoop({gain:0.004, freq:600, q:0.5, type:'lowpass', lfoRate:0.05, lfoDepth:0.002});
+ } else if(stage==='moonlit-forest'){
+  // dark wind through trees
+  addNoiseLoop({gain:0.01, freq:280, q:0.6, type:'bandpass', lfoRate:0.06, lfoDepth:0.005});
+  addNoiseLoop({gain:0.005, freq:900, q:1.2, type:'bandpass', lfoRate:0.04, lfoDepth:0.002});
+ } else if(stage==='waterfall'){
+  // broadband water roar
+  addNoiseLoop({gain:0.014, freq:1100, q:0.5, type:'bandpass', lfoRate:0.2, lfoDepth:0.004});
+  addNoiseLoop({gain:0.008, freq:4000, q:0.8, type:'highpass', lfoRate:0.3, lfoDepth:0.003});
+ } else if(stage==='autumn-grove'){
+  // dry rustle bed
+  addNoiseLoop({gain:0.009, freq:2200, q:1, type:'bandpass', lfoRate:0.12, lfoDepth:0.004});
+  addNoiseLoop({gain:0.005, freq:500, q:0.7, type:'lowpass', lfoRate:0.07, lfoDepth:0.002});
+ } else if(stage==='crystal-lake'){
+  // quiet water surface
+  addNoiseLoop({gain:0.006, freq:1800, q:1.5, type:'bandpass', lfoRate:0.09, lfoDepth:0.002});
+  addNoiseLoop({gain:0.004, freq:400, q:0.8, type:'lowpass', lfoRate:0.05, lfoDepth:0.002});
+ } else if(stage==='misty-highlands'){
+  // strong wind
+  addNoiseLoop({gain:0.015, freq:450, q:0.5, type:'bandpass', lfoRate:0.05, lfoDepth:0.006});
+  addNoiseLoop({gain:0.006, freq:200, q:0.7, type:'lowpass', lfoRate:0.03, lfoDepth:0.003});
+ } else { // sunset-valley
+  addNoiseLoop({gain:0.007, freq:900, q:0.8, type:'bandpass', lfoRate:0.07, lfoDepth:0.003});
+  addNoiseLoop({gain:0.004, freq:2500, q:2, type:'bandpass', lfoRate:0.11, lfoDepth:0.002});
+ }
+}
+
+function musicNote(){
+ if(!musicOn) return;
+ const c=audio(); if(!c) return;
+ const stage=document.body.dataset.stage||'meadow';
+ const now=c.currentTime;
+ musicChord++;
+
+ if(stage==='meadow'){
+  // Bird chirp phrase
+  const base=1600+Math.random()*400;
+  playTone({freq:base, duration:0.09, type:'sine', gain:0.02, slideTo:base+500});
+  playTone({freq:base+300, duration:0.07, type:'sine', gain:0.015, startAt:0.1, slideTo:base+100});
+  if(musicChord%3===0){
+   playTone({freq:base-200, duration:0.08, type:'sine', gain:0.012, startAt:0.22, slideTo:base+200});
+  }
+ } else if(stage==='field'){
+  // Cricket pulses
+  for(let i=0;i<5;i++){
+   playNoiseBurst({duration:0.025, gain:0.015, freq:4200, q:12, type:'bandpass', startAt:i*0.07});
+  }
+  if(musicChord%2===0) playTone({freq:180, duration:0.4, type:'sine', gain:0.008});
+ } else if(stage==='moonlit-forest'){
+  // Owl hoot (two-note)
+  playTone({freq:320, duration:0.35, type:'sine', gain:0.025, slideTo:280});
+  playTone({freq:260, duration:0.45, type:'sine', gain:0.022, startAt:0.4, slideTo:230});
+  if(musicChord%4===0) playNoiseBurst({duration:0.5, gain:0.01, freq:300, q:0.6, type:'bandpass'});
+ } else if(stage==='waterfall'){
+  // Extra splash accents on the constant water bed
+  playNoiseBurst({duration:0.3, gain:0.025, freq:1600+Math.random()*800, q:0.8, type:'bandpass'});
+  playNoiseBurst({duration:0.15, gain:0.02, freq:3500, q:1.2, type:'highpass', startAt:0.1});
+ } else if(stage==='autumn-grove'){
+  // Wind + leaf gusts
+  playNoiseBurst({duration:0.5, gain:0.03, freq:1800, q:0.9, type:'bandpass'});
+  playNoiseBurst({duration:0.25, gain:0.022, freq:3000, q:1.4, type:'highpass', startAt:0.15});
+  playTone({freq:150+Math.random()*40, duration:0.6, type:'triangle', gain:0.01});
+ } else if(stage==='crystal-lake'){
+  // Droplet intervals
+  for(let i=0;i<3;i++){
+   const f=1200+Math.random()*900;
+   playTone({freq:f, duration:0.2, type:'sine', gain:0.018, startAt:i*0.35, slideTo:f*0.7});
+  }
+ } else if(stage==='misty-highlands'){
+  // Wind swell
+  playNoiseBurst({duration:1.2, gain:0.035, freq:350+Math.random()*150, q:0.5, type:'bandpass'});
+  playTone({freq:90, duration:1.0, type:'sine', gain:0.012});
+ } else {
+  // Sunset: warm low pad stab + distant insect
+  playTone({freq:196, duration:1.2, type:'sine', gain:0.012});
+  playTone({freq:246.94, duration:1.2, type:'sine', gain:0.01, startAt:0.05});
+  playTone({freq:293.66, duration:1.0, type:'triangle', gain:0.008, startAt:0.1});
+  if(musicChord%2===0){
+   for(let i=0;i<3;i++) playNoiseBurst({duration:0.03, gain:0.012, freq:3800, q:10, type:'bandpass', startAt:0.4+i*0.08});
   }
  }
 }
-let musicChord=0;
-const STAGE_MUSIC={
- // Unique chord progressions + waveform + tempo character per stage
- 'meadow':{
-  wave:'sine', interval:5600, gain:0.010, stagger:0.20,
-  chords:[[196.00,246.94,293.66,369.99],[164.81,196.00,246.94,329.63],[174.61,220.00,261.63,349.23],[146.83,196.00,246.94,293.66]]
- },
- 'field':{
-  wave:'triangle', interval:5200, gain:0.011, stagger:0.16,
-  chords:[[174.61,220.00,261.63,329.63],[146.83,196.00,246.94,293.66],[164.81,207.65,246.94,329.63],[130.81,174.61,220.00,261.63]]
- },
- 'moonlit-forest':{
-  wave:'sine', interval:6400, gain:0.008, stagger:0.28,
-  chords:[[146.83,174.61,220.00,261.63],[130.81,164.81,196.00,246.94],[146.83,185.00,220.00,277.18],[110.00,146.83,174.61,220.00]]
- },
- 'waterfall':{
-  wave:'sawtooth', interval:4800, gain:0.006, stagger:0.12,
-  chords:[[220.00,261.63,329.63,392.00],[196.00,246.94,293.66,369.99],[174.61,220.00,293.66,349.23],[246.94,311.13,369.99,440.00]]
- },
- 'autumn-grove':{
-  wave:'triangle', interval:5800, gain:0.010, stagger:0.22,
-  chords:[[164.81,207.65,246.94,311.13],[146.83,185.00,220.00,277.18],[155.56,196.00,233.08,293.66],[123.47,164.81,207.65,246.94]]
- },
- 'crystal-lake':{
-  wave:'sine', interval:5000, gain:0.009, stagger:0.14,
-  chords:[[207.65,261.63,311.13,415.30],[185.00,233.08,277.18,369.99],[196.00,246.94,293.66,392.00],[233.08,293.66,349.23,440.00]]
- },
- 'misty-highlands':{
-  wave:'triangle', interval:6600, gain:0.009, stagger:0.30,
-  chords:[[174.61,207.65,261.63,311.13],[155.56,196.00,233.08,311.13],[164.81,220.00,261.63,329.63],[130.81,174.61,207.65,261.63]]
- },
- 'sunset-valley':{
-  wave:'sine', interval:5400, gain:0.010, stagger:0.18,
-  chords:[[185.00,233.08,277.18,349.23],[164.81,207.65,246.94,329.63],[174.61,220.00,261.63,349.23],[146.83,185.00,233.08,293.66]]
- }
-};
-function musicNote(){
- const c=audio(); if(!c) return;
- const now=c.currentTime;
- const stage=document.body.dataset.stage||'meadow';
- const theme=STAGE_MUSIC[stage]||STAGE_MUSIC.meadow;
- const notes=theme.chords[musicChord++%theme.chords.length];
- for(let i=0;i<notes.length;i++){
-  const o=c.createOscillator(), g=c.createGain();
-  const filter=c.createBiquadFilter();
-  filter.type='lowpass';
-  filter.frequency.value=stage==='waterfall'?2400:stage==='crystal-lake'?3600:2200;
-  o.type=theme.wave;
-  o.frequency.value=notes[i];
-  g.gain.setValueAtTime(0.0001, now);
-  g.gain.linearRampToValueAtTime(theme.gain, now+1.2);
-  g.gain.linearRampToValueAtTime(0.0001, now+5.4);
-  o.connect(filter); filter.connect(g); g.connect(c.destination);
-  o.start(now+i*theme.stagger);
-  o.stop(now+5.6);
- }
-}
+
 function stopMusicForBackground(){
  clearInterval(musicTimer); musicTimer=null;
+ stopAmbientNodes();
  if(audioCtx&&audioCtx.state==='running') audioCtx.suspend().catch(()=>{});
 }
 function resumeMusic(){
@@ -1006,15 +1229,20 @@ function resumeMusic(){
  const c=audio();
  if(c&&c.state==='suspended') c.resume().catch(()=>{});
  if(!musicTimer){
+  startStageAmbient();
   musicNote();
+  const intervals={
+   'meadow':3200,'field':2800,'moonlit-forest':5200,'waterfall':2400,
+   'autumn-grove':3600,'crystal-lake':3000,'misty-highlands':4800,'sunset-valley':4000
+  };
   const stage=document.body.dataset.stage||'meadow';
-  const interval=(STAGE_MUSIC[stage]||STAGE_MUSIC.meadow).interval;
-  musicTimer=setInterval(musicNote, interval);
+  musicTimer=setInterval(musicNote, intervals[stage]||3600);
  }
 }
 function restartMusicForStage(){
  if(!musicOn) return;
  clearInterval(musicTimer); musicTimer=null;
+ stopAmbientNodes();
  musicChord=0;
  resumeMusic();
 }
@@ -1025,11 +1253,37 @@ function toggleMusic(){
 }
 function toggleEffects(){ effectsOn=!effectsOn; saveAudioPrefs(); }
 
-$('playBtn').addEventListener('click',startGame);$('homeMenuBtn').addEventListener('click',openGameMenu);$('gameMenuBtn').addEventListener('click',openGameMenu);$('levelsBtn').addEventListener('click',openLevels);if($('globalWordsBtn'))$('globalWordsBtn').addEventListener('click',openGlobalWordList);$('shuffle').addEventListener('click',shuffle);$('hint').addEventListener('click',openHints);$('wordListBtn').addEventListener('click',openWordList);$('extrasBtn').addEventListener('click',openExtras);$('homeHelp').addEventListener('click',()=>showModal('How to play','Swipe across the letter wheel to spell words. Tap a crossword word to select it for definition hints or a letter reveal. Solve every crossword word to finish a level. Bonus words earn coins.'));
+$('playBtn').addEventListener('click',startGame);$('homeMenuBtn').addEventListener('click',openGameMenu);$('gameMenuBtn').addEventListener('click',openGameMenu);$('levelsBtn').addEventListener('click',openLevels);if($('globalWordsBtn'))$('globalWordsBtn').addEventListener('click',openGlobalWordList);if($('homeWordsCard'))$('homeWordsCard').addEventListener('click',openGlobalWordList);$('shuffle').addEventListener('click',shuffle);$('hint').addEventListener('click',openHints);$('wordListBtn').addEventListener('click',openWordList);$('extrasBtn').addEventListener('click',openExtras);$('homeHelp').addEventListener('click',()=>showModal('How to play','Swipe across the letter wheel to spell words. Tap a crossword word to select it for definition hints or a letter reveal. Solve every crossword word to finish a level. Bonus words earn coins.'));
 document.addEventListener('visibilitychange',()=>{if(document.hidden)stopMusicForBackground();else resumeMusic()});window.addEventListener('pagehide',stopMusicForBackground);window.addEventListener('pageshow',()=>{if(!document.hidden)resumeMusic()});
 document.addEventListener('click',e=>{if(e.target.closest('button')&&!e.target.closest('.letter'))playEffect('button')});
 $('wheel').addEventListener('pointerdown',handleDown);document.addEventListener('pointermove',handleMove,{passive:false});document.addEventListener('pointerup',handleUp);document.addEventListener('pointercancel',handleUp);
 async function boot(){try{const [lr,dr,df]=await Promise.all([fetch('./levels.json'),fetch('./dictionary.json'),fetch('./definitions.json').catch(()=>null)]);if(!lr.ok||!dr.ok)throw Error('Puzzle files unavailable');levels=await lr.json();dictionary=new Set(await dr.json());if(df?.ok)definitions=await df.json();try{definitions={...definitions,...JSON.parse(localStorage.getItem('wordgrove-definitions')||'{}')}}catch{}state.currentLevel=Math.min(state.currentLevel,levels.length-1);state.unlockedLevel=Math.min(state.unlockedLevel,levels.length-1);updateHome();showHome();const hv=$('homeVersion');if(hv)hv.textContent=`Wordgrove v${APP_VERSION}`;
+ document.title=`Wordgrove v${APP_VERSION}`;
  try{ if(new URLSearchParams(location.search).get('dev')==='1') localStorage.setItem('wordgrove-dev','1'); }catch{}
-if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{})}catch(e){$('homeScreen').innerHTML='<div class="hero"><h1>Wordgrove</h1><p>The puzzle library could not be loaded. Connect to the internet once, then refresh.</p></div>'}}
+if('serviceWorker'in navigator){
+  navigator.serviceWorker.register('./sw.js?v='+APP_VERSION).then(reg=>{
+    reg.update().catch(()=>{});
+    // If a new worker is waiting, activate it
+    if(reg.waiting) reg.waiting.postMessage({type:'SKIP_WAITING'});
+    reg.addEventListener('updatefound',()=>{
+      const nw=reg.installing;
+      if(!nw) return;
+      nw.addEventListener('statechange',()=>{
+        if(nw.state==='installed'&&navigator.serviceWorker.controller){
+          // New version ready — soft reload once so version badge updates
+          try{
+            const flag='wordgrove-reloaded-'+APP_VERSION;
+            if(!sessionStorage.getItem(flag)){
+              sessionStorage.setItem(flag,'1');
+              location.reload();
+            }
+          }catch{ location.reload(); }
+        }
+      });
+    });
+  }).catch(()=>{});
+  navigator.serviceWorker.addEventListener('message',ev=>{
+    if(ev.data&&ev.data.type==='RELOAD') location.reload();
+  });
+}}catch(e){$('homeScreen').innerHTML='<div class="hero"><h1>Wordgrove</h1><p>The puzzle library could not be loaded. Connect to the internet once, then refresh.</p></div>'}}
 window.addEventListener('resize',()=>{if(levels.length&&!$('gameScreen').hidden){renderCrossword();drawWheel()}});boot();
