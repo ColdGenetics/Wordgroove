@@ -1,4 +1,4 @@
-const APP_VERSION = '3.5.16';
+const APP_VERSION = '3.5.17';
 const $ = id => document.getElementById(id);
 const SAVE_KEY = 'wordgrove-v4-save';
 const LETTER_HINT_COST = 25, DEFINITION_HINT_COST = 15, DOUBLE_HINT_COST = 40;
@@ -149,7 +149,7 @@ function currentWord(){return picked.map(i=>rack[i]).join('')}
 function levelNo(){return Math.min(Math.max(state.currentLevel,state.unlockedLevel),levels.length-1)+1}
 function updateCoins(){$('homeCoins').textContent=state.coins;$('gameCoins').textContent=state.coins}
 function updateHome(){$('homeLevel').textContent=levelNo().toLocaleString();updateCoins();$('homeWords').textContent=Object.values(state.solvedByLevel).reduce((n,a)=>n+(a||[]).length,0).toLocaleString();const hv=$('homeVersion');if(hv)hv.textContent=`Wordgrove v${APP_VERSION}`;}
-function showHome(){document.body.classList.remove('in-game');$('gameScreen').hidden=true;$('homeScreen').hidden=false;$('overlay').classList.remove('show');updateHome()}
+function showHome(){document.body.classList.remove('in-game');const sk=(typeof stageForLevel==='function'&&levels.length)?stageForLevel(state.currentLevel||0).key:'meadow';document.body.dataset.stage=sk;document.body.className=`stage-${sk}`;try{FX.setStage(sk)}catch(e){};$('gameScreen').hidden=true;$('homeScreen').hidden=false;$('overlay').classList.remove('show');updateHome()}
 function clampLevel(n){return Math.max(0,Math.min(Number(n)||0,levels.length-1))}
 function isLevelComplete(n){const words=levels[n]?.words||[];const solvedArr=state.solvedByLevel[n]||[];return words.length>0&&solvedArr.length>=words.length}
 /** Jump to an explicit level index. Respects unlock unless force=true (dev). */
@@ -187,6 +187,7 @@ function renderGame(){
  $('levelname').textContent=`${stage.name} · ${level+1}`;
  document.body.dataset.stage=stage.key;
  document.body.className=`stage-${stage.key} in-game`;
+ try{ FX.setStage(stage.key); }catch(e){}
  if(typeof restartMusicForStage==='function') restartMusicForStage();
  $('levelsub').textContent=`${rack.length} tiles · ${data.words.length} words`;
  if($('status')) $('status').textContent=`${solved.size} / ${data.words.length} words`;
@@ -315,7 +316,7 @@ function selectCrosswordCell(x,y){
   revealed[selectedWord]=[...have];
   revealMode=false;
   persistLevel(); updateCoins();
-  playEffect('success');
+  playEffect('success');try{FX.burst('solve')}catch(e){}
   say(`Letter revealed · −${LETTER_HINT_COST} coins`);
   autoCompleteRevealedWords();
   renderCrossword();
@@ -510,7 +511,7 @@ function solveWord(w,reward=true){
   if(!completionShown) say(`+${WORD_REWARD} coins · Well done!`);
  }
 }
-function finishLevel(){if(completionShown||solved.size<levels[level].words.length)return;completionShown=true;const final=level===levels.length-1;const wordCoins=solved.size*WORD_REWARD;const bonusCoins=[...extras].reduce((n,w)=>n+coinRewardForExtra(w),0);state.coins+=LEVEL_REWARD;state.unlockedLevel=Math.max(state.unlockedLevel,Math.min(level+1,levels.length-1));persistLevel();updateCoins();const points=wordCoins+LEVEL_REWARD+bonusCoins;$('modal').innerHTML=`<div class="level-finish"><div class="finish-leaf">✦</div><h2>${final?'All levels complete!':'Level complete!'}</h2><p>Beautifully done. The next part of your adventure awaits.</p><div class="stats"><div><strong>+${points}</strong><span>POINTS GAINED</span></div><div><strong>${extras.size}</strong><span>BONUS WORDS</span></div></div><p class="finish-detail">${wordCoins} word points · ${LEVEL_REWARD} level bonus${bonusCoins?` · ${bonusCoins} bonus-word coins`:''}</p><button class="action primary" id="next">${final?'Return to menu':`Continue to ${stageForLevel(level+1).name} · ${level+2} →`}</button></div>`;$('overlay').classList.add('show');$('next').onclick=()=>{$('overlay').classList.remove('show');if(final){showHome();return}state.currentLevel=Math.min(level+1,levels.length-1);saveState();level=state.currentLevel;renderGame()}}
+function finishLevel(){try{FX.burst('level')}catch(e){}if(completionShown||solved.size<levels[level].words.length)return;completionShown=true;const final=level===levels.length-1;const wordCoins=solved.size*WORD_REWARD;const bonusCoins=[...extras].reduce((n,w)=>n+coinRewardForExtra(w),0);state.coins+=LEVEL_REWARD;state.unlockedLevel=Math.max(state.unlockedLevel,Math.min(level+1,levels.length-1));persistLevel();updateCoins();const points=wordCoins+LEVEL_REWARD+bonusCoins;$('modal').innerHTML=`<div class="level-finish"><div class="finish-leaf">✦</div><h2>${final?'All levels complete!':'Level complete!'}</h2><p>Beautifully done. The next part of your adventure awaits.</p><div class="stats"><div><strong>+${points}</strong><span>POINTS GAINED</span></div><div><strong>${extras.size}</strong><span>BONUS WORDS</span></div></div><p class="finish-detail">${wordCoins} word points · ${LEVEL_REWARD} level bonus${bonusCoins?` · ${bonusCoins} bonus-word coins`:''}</p><button class="action primary" id="next">${final?'Return to menu':`Continue to ${stageForLevel(level+1).name} · ${level+2} →`}</button></div>`;$('overlay').classList.add('show');$('next').onclick=()=>{$('overlay').classList.remove('show');if(final){showHome();return}state.currentLevel=Math.min(level+1,levels.length-1);saveState();level=state.currentLevel;renderGame()}}
 async function getDefinition(word){
  const key=String(word).toLowerCase();
  if(definitions[key]){
@@ -853,7 +854,7 @@ function showModal(title,body){
  $('closemodal').onclick=()=>$('overlay').classList.remove('show');
 }
 function handleDown(e){const b=e.target.closest('.letter');if(!b||pointerActive)return;e.preventDefault();pointerActive=true;pointerId=e.pointerId;dragged=false;startPoint={x:e.clientX,y:e.clientY};try{$('wheel').setPointerCapture(e.pointerId)}catch{}selectLetter(+b.dataset.index)}
-function handleMove(e){if(!pointerActive||e.pointerId!==pointerId)return;const dx=e.clientX-startPoint.x,dy=e.clientY-startPoint.y;if(Math.hypot(dx,dy)>8)dragged=true;const t=document.elementFromPoint(e.clientX,e.clientY),b=t?.closest?.('.letter');if(b&&$('wheel').contains(b))selectLetter(+b.dataset.index)}
+function handleMove(e){if(!pointerActive||e.pointerId!==pointerId)return;const dx=e.clientX-startPoint.x,dy=e.clientY-startPoint.y;if(Math.hypot(dx,dy)>8)dragged=true;try{FX.swirl(e.movementX||dx*0.05,e.movementY||dy*0.05)}catch(err){}const t=document.elementFromPoint(e.clientX,e.clientY),b=t?.closest?.('.letter');if(b&&$('wheel').contains(b))selectLetter(+b.dataset.index)}
 function handleUp(e){if(!pointerActive||e.pointerId!==pointerId)return;const shouldSubmit=e.type==='pointerup'&&picked.length>=2;pointerActive=false;pointerId=null;startPoint=null;if(shouldSubmit)submit();else clearSelection()}
 
 const STAGES=[['Meadow','meadow'],['Field','field'],['Moonlit Mountain Forest','moonlit-forest'],['Waterfall','waterfall'],['Autumn Grove','autumn-grove'],['Crystal Lake','crystal-lake'],['Misty Highlands','misty-highlands'],['Sunset Valley','sunset-valley']];
@@ -1344,7 +1345,153 @@ $('playBtn').addEventListener('click',startGame);$('homeMenuBtn').addEventListen
 document.addEventListener('visibilitychange',()=>{if(document.hidden)stopMusicForBackground();else resumeMusic()});window.addEventListener('pagehide',stopMusicForBackground);window.addEventListener('pageshow',()=>{if(!document.hidden)resumeMusic()});
 document.addEventListener('click',e=>{if(e.target.closest('button')&&!e.target.closest('.letter'))playEffect('button')});
 $('wheel').addEventListener('pointerdown',handleDown);document.addEventListener('pointermove',handleMove,{passive:false});document.addEventListener('pointerup',handleUp);document.addEventListener('pointercancel',handleUp);
-async function boot(){try{const [lr,dr,df]=await Promise.all([fetch('./levels.json'),fetch('./dictionary.json'),fetch('./definitions.json').catch(()=>null)]);if(!lr.ok||!dr.ok)throw Error('Puzzle files unavailable');levels=await lr.json();dictionary=new Set(await dr.json());if(df?.ok)definitions=await df.json();try{definitions={...definitions,...JSON.parse(localStorage.getItem('wordgrove-definitions')||'{}')}}catch{}state.currentLevel=Math.min(state.currentLevel,levels.length-1);state.unlockedLevel=Math.min(state.unlockedLevel,levels.length-1);updateHome();showHome();const hv=$('homeVersion');if(hv)hv.textContent=`Wordgrove v${APP_VERSION}`;
+
+// ---- Lightweight stage particle FX (canvas 2d, capped count) ----
+const FX = {
+  particles: [],
+  windX: 0,
+  windY: 0,
+  max: 42,
+  last: 0,
+  stage: 'meadow',
+  reduced: false,
+  init(){
+    this.canvas = $('fxCanvas');
+    if(!this.canvas) return;
+    this.ctx = this.canvas.getContext('2d', { alpha: true });
+    this.reduced = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    this.resize();
+    window.addEventListener('resize', ()=>this.resize(), { passive:true });
+    // Background tap impulse (only when not interacting with UI controls)
+    document.addEventListener('pointerdown', (e)=>{
+      if(e.target.closest('button, .letter, .cross-cell, .modal, .action, input')) return;
+      this.impulse(e.clientX, e.clientY, 1.2);
+    }, { passive:true });
+    requestAnimationFrame((t)=>this.frame(t));
+  },
+  resize(){
+    if(!this.canvas) return;
+    const dpr = Math.min(window.devicePixelRatio||1, 2);
+    const w = window.innerWidth, h = window.innerHeight;
+    this.canvas.width = Math.floor(w * dpr);
+    this.canvas.height = Math.floor(h * dpr);
+    this.canvas.style.width = w+'px';
+    this.canvas.style.height = h+'px';
+    this.dpr = dpr;
+    this.w = w; this.h = h;
+  },
+  setStage(key){
+    this.stage = key || 'meadow';
+    this.particles = [];
+    if(this.reduced) return;
+    const n = this.stage==='autumn-grove' ? 36 : this.stage==='waterfall' ? 28 : 24;
+    for(let i=0;i<n;i++) this.particles.push(this.spawn(true));
+  },
+  spawn(randomY){
+    const s = this.stage;
+    const base = {
+      x: Math.random()*this.w,
+      y: randomY ? Math.random()*this.h : -12,
+      vx: (Math.random()-0.5)*0.25,
+      vy: 0.15 + Math.random()*0.35,
+      r: 1.2 + Math.random()*2.4,
+      a: 0.25 + Math.random()*0.45,
+      rot: Math.random()*Math.PI*2,
+      vr: (Math.random()-0.5)*0.04,
+      kind: 'dot'
+    };
+    if(s==='autumn-grove'){
+      base.kind='leaf'; base.r=3+Math.random()*4; base.vy=0.35+Math.random()*0.55;
+      base.color=`hsl(${18+Math.random()*28},70%,${45+Math.random()*20}%)`;
+    } else if(s==='meadow' || s==='field'){
+      base.kind='pollen'; base.color='rgba(255,250,200,0.7)'; base.vy=0.08+Math.random()*0.2;
+    } else if(s==='waterfall' || s==='crystal-lake'){
+      base.kind='mist'; base.color='rgba(220,240,255,0.5)'; base.r=1+Math.random()*2; base.vy=0.4+Math.random()*0.6;
+    } else if(s==='moonlit-forest'){
+      base.kind='mote'; base.color='rgba(180,210,255,0.45)'; base.vy=0.05+Math.random()*0.15;
+    } else if(s==='misty-highlands'){
+      base.kind='fog'; base.color='rgba(230,235,230,0.25)'; base.r=8+Math.random()*18; base.vy=0.04+Math.random()*0.08;
+    } else {
+      base.kind='ember'; base.color='rgba(255,200,120,0.45)'; base.vy=0.06+Math.random()*0.12;
+    }
+    return base;
+  },
+  impulse(x,y,strength=1){
+    if(this.reduced) return;
+    for(const p of this.particles){
+      const dx=p.x-x, dy=p.y-y;
+      const d2=dx*dx+dy*dy;
+      if(d2<16000){
+        const d=Math.sqrt(d2)+0.01;
+        p.vx += (dx/d)*strength*0.8;
+        p.vy += (dy/d)*strength*0.5;
+      }
+    }
+  },
+  /** Call from letter-wheel swipe with approximate velocity */
+  swirl(dx, dy){
+    this.windX = Math.max(-2.5, Math.min(2.5, this.windX + dx*0.02));
+    this.windY = Math.max(-1.5, Math.min(1.5, this.windY + dy*0.015));
+  },
+  burst(kind='solve'){
+    if(this.reduced) return;
+    const cx=this.w*0.5, cy=this.h*0.38;
+    const extra = kind==='level' ? 18 : 10;
+    for(let i=0;i<extra;i++){
+      const p=this.spawn(false);
+      p.x=cx+(Math.random()-0.5)*80;
+      p.y=cy+(Math.random()-0.5)*40;
+      p.vx=(Math.random()-0.5)*3;
+      p.vy=-0.5-Math.random()*2;
+      p.a=0.7;
+      this.particles.push(p);
+    }
+    if(this.particles.length>this.max+20) this.particles.length=this.max+20;
+  },
+  frame(t){
+    requestAnimationFrame((nt)=>this.frame(nt));
+    if(!this.ctx || this.reduced) return;
+    const dt = Math.min(40, t - (this.last||t));
+    this.last = t;
+    // damp wind
+    this.windX *= 0.96; this.windY *= 0.96;
+    const ctx=this.ctx, dpr=this.dpr||1;
+    ctx.clearRect(0,0,this.canvas.width,this.canvas.height);
+    ctx.save();
+    ctx.scale(dpr,dpr);
+    for(let i=this.particles.length-1;i>=0;i--){
+      const p=this.particles[i];
+      p.vx += this.windX*0.02;
+      p.vy += this.windY*0.015;
+      p.x += p.vx * (dt/16);
+      p.y += p.vy * (dt/16);
+      p.rot += p.vr;
+      p.vx *= 0.99; p.vy *= 0.995;
+      if(p.y>this.h+20 || p.x<-30 || p.x>this.w+30){
+        this.particles[i]=this.spawn(false);
+        continue;
+      }
+      ctx.globalAlpha = p.a;
+      if(p.kind==='leaf'){
+        ctx.fillStyle=p.color;
+        ctx.save();
+        ctx.translate(p.x,p.y);
+        ctx.rotate(p.rot);
+        ctx.fillRect(-p.r, -p.r*0.5, p.r*2, p.r);
+        ctx.restore();
+      } else {
+        ctx.fillStyle=p.color||'rgba(255,255,255,0.5)';
+        ctx.beginPath();
+        ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+};
+
+
+async function boot(){try{const [lr,dr,df]=await Promise.all([fetch('./levels.json'),fetch('./dictionary.json'),fetch('./definitions.json').catch(()=>null)]);if(!lr.ok||!dr.ok)throw Error('Puzzle files unavailable');levels=await lr.json();dictionary=new Set(await dr.json());if(df?.ok)definitions=await df.json();try{definitions={...definitions,...JSON.parse(localStorage.getItem('wordgrove-definitions')||'{}')}}catch{}state.currentLevel=Math.min(state.currentLevel,levels.length-1);state.unlockedLevel=Math.min(state.unlockedLevel,levels.length-1);updateHome();showHome();try{FX.init();FX.setStage(document.body.dataset.stage||'meadow')}catch(e){};const hv=$('homeVersion');if(hv)hv.textContent=`Wordgrove v${APP_VERSION}`;
  document.title=`Wordgrove v${APP_VERSION}`;
  try{ if(new URLSearchParams(location.search).get('dev')==='1') localStorage.setItem('wordgrove-dev','1'); }catch{}
 if('serviceWorker'in navigator){
