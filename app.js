@@ -1,9 +1,46 @@
-const APP_VERSION = '3.5.10';
+const APP_VERSION = '3.5.11';
 const $ = id => document.getElementById(id);
 const SAVE_KEY = 'wordgrove-v4-save';
 const LETTER_HINT_COST = 25, DEFINITION_HINT_COST = 15, DOUBLE_HINT_COST = 40;
 const WORD_REWARD = 5, LEVEL_REWARD = 20;
 const TWO_LETTER_WORDS = new Set('am an as at be by do go he if in is it me my no of oh on or ox so to up us we'.split(' '));
+const REJECTED_BONUS_WORDS = new Set([
+  // acronyms / initialisms / abbreviations
+  'eal','lae','fbi','tra','la','doc','mfg','str','avg','etc','inc','ltd','mrs','mr','ms','dr','st','rd','ave','dept','gov','govt','corp','llc','vs','etc','aka','diy','asap','rsvp','tba','tbd','faq','gps','usb','pdf','html','css','js','api','url','http','https','www','usa','uk','eu','un','nato','nasa','cia','nsa','irs','dna','rna','hiv','aids','covid','pc','tv','dvd','cd','hd','sd','ui','ux','ceo','cfo','cto','hr','pr','qa','id','iq','eq','ok','lol','omg','btw','imo','fyi','brb','ttyl','afaik','irl','dm','pm','am','bc','ad','ph','d','b','c','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z',
+  // given examples + similar
+  'lare','roat','stor','stra','cali','peru','shiv','doc',
+  // common place-name short forms / places that appear as short words
+  'nyc','la','sf','dc','uk','usa','eu','asia','rome','paris','tokyo','oslo','bern','lima','quito','cairo','delhi','miami','dallas','boston','seattle','denver','austin','phoenix','atlanta','chicago','houston','london','berlin','madrid','moscow','sydney','dublin','ottawa','beijing','seoul','hanoi','manila','jakarta','bangkok','dubai','riyadh','tehran','baghdad','nairobi','lagos','accra','havana','quito','bogota','santiago','buenos','aires',
+  // surnames / proper-name-ish that often slip in
+  'smith','jones','brown','davis','miller','wilson','moore','taylor','anderson','thomas','jackson','white','harris','martin','garcia','clark','lewis','lee','walker','hall','allen','young','king','wright','scott','green','baker','adams','nelson','hill','ramirez','campbell','mitchell','roberts','carter','phillips','evans','turner','torres','parker','collins','edwards','stewart','flores','morris','nguyen','murphy','rivera','cook','rogers','morgan','peterson','cooper','reed','bailey','bell','gomez','kelly','howard','ward','cox','diaz','richardson','wood','watson','brooks','bennett','gray','james','reyes','cruz','hughes','price','myers','long','foster','sanders','ross','morales','powell','sullivan','russell','ortiz','jenkins','gutierrez','perry','butler','barnes','fisher',
+  // slang / informal that should not earn bonus coins in this game
+  'shiv','yeet','sus','cap','bet','bruh','fam','lit','slay','rizz','bussin','mid','stan','simp','based','cringe','noob','pwn','lmao','rofl','thicc','smol','chonky','boomer','zoomer','millenial','genx','genz','boomer','sus','cap'
+].map(w=>w.toLowerCase()));
+
+function looksLikeAcronymOrInitialism(word){
+  const w=String(word).toLowerCase();
+  if(w.length<2||w.length>5) return false;
+  // all consonants (or mostly) short tokens often are initialisms: fbi, tra, mfg, str
+  const vowels=w.replace(/[^aeiouy]/g,'');
+  if(w.length>=3 && vowels.length===0) return true;
+  if(w.length===2 && vowels.length===0) return true;
+  // repeated letter pairs like aa, bb rarely real bonus words in this context
+  if(/^(.)\1$/.test(w)) return true;
+  return false;
+}
+
+function isRejectedBonusWord(word){
+  const w=String(word).toLowerCase().trim();
+  if(!w) return true;
+  if(REJECTED_BONUS_WORDS.has(w)) return true;
+  if(looksLikeAcronymOrInitialism(w)) return true;
+  // Single-letter or pure digit noise
+  if(/^[0-9]+$/.test(w)) return true;
+  // Hyphenated / dotted abbreviations
+  if(/[.\-]/.test(w)) return true;
+  return false;
+}
+
 let levels=[], dictionary=new Set(), definitions={}, level=0, rack=[], picked=[], solved=new Set(), revealed={}, extras=new Set(), selectedWord=null;
 let toastTimer, pointerActive=false, pointerId=null, dragged=false, startPoint=null, audioCtx=null, musicTimer=null, musicOn=false, effectsOn=true, revealMode=false, audioWasPlaying=false, completionShown=false, wheelObserver=null, boardObserver=null;
 const freshState=()=>({currentLevel:0,unlockedLevel:0,coins:50,solvedByLevel:{},revealedByLevel:{},extrasByLevel:{}});
@@ -184,7 +221,12 @@ function drawWheel(){
  wheel.style.visibility='visible';
  wheel.style.opacity='1';
  const n=rack.length;
- const radius=Math.min(rect.width, rect.height) * (n>6 ? 0.36 : 0.34);
+ const size=Math.min(rect.width, rect.height);
+ // Radius leaves a margin so larger tiles never overlap; scale by letter count
+ const tileScale = n<=5 ? 0.30 : n<=6 ? 0.27 : n<=7 ? 0.24 : n<=8 ? 0.22 : 0.20;
+ const tilePx = Math.max(36, Math.min(64, size * tileScale));
+ const gapFactor = n<=5 ? 0.42 : n<=6 ? 0.40 : n<=7 ? 0.38 : n<=8 ? 0.36 : 0.34;
+ const radius = size * gapFactor;
  for(let i=0;i<n;i++){
   const b=document.createElement('button');
   b.type='button';
@@ -193,6 +235,9 @@ function drawWheel(){
   const angle=-Math.PI/2 + i*2*Math.PI/n;
   b.style.left=`${50 + Math.cos(angle)*radius/rect.width*100}%`;
   b.style.top=`${50 + Math.sin(angle)*radius/rect.height*100}%`;
+  b.style.width=`${tilePx}px`;
+  b.style.height=`${tilePx}px`;
+  b.style.fontSize=`${Math.round(tilePx*0.42)}px`;
   b.dataset.index=i;
   // Ensure letters are painted even if CSS is slow
   b.style.visibility='visible';
@@ -203,7 +248,7 @@ function drawWheel(){
 function selectLetter(i){if(!Number.isInteger(i)||picked.includes(i))return;picked.push(i);playEffect('letter');updateCurrent()}
 function updateCurrent(){$('current').textContent=currentWord().toUpperCase();[...$('wheel').children].forEach((b,i)=>b.classList.toggle('selected',picked.includes(i)))}
 function clearSelection(){picked=[];updateCurrent()}
-function coinRewardForExtra(word){return word.length<=2?1:word.length===3?2:word.length===4?3:word.length===5?4:5}
+function coinRewardForExtra(word){const len=String(word).length;return len<=3?0:len-3}
 function canMakeFromRack(word){const available={};for(const c of rack)available[c]=(available[c]||0)+1;for(const c of word){if(!available[c])return false;available[c]--}return true}
 async function lookupEnglishWord(word){
  const key=String(word).toLowerCase();
@@ -255,12 +300,17 @@ async function submit(){
    okBonus = await lookupEnglishWord(w);
   }
   if(okBonus){
+   if(isRejectedBonusWord(w)){
+    say('Not accepted as a bonus word (abbreviation, place name, or slang)');
+    return;
+   }
    if(extras.has(w)){ say('Already in your extra words list'); return; }
    extras.add(w);
    const reward=coinRewardForExtra(w);
    state.coins+=reward;
    persistLevel(); updateCoins();
-   say(`Extra word! +${reward} coin${reward===1?'':'s'}`);
+   if(reward>0) say(`Extra word! +${reward} coin${reward===1?'':'s'}`);
+   else say('Extra word recorded');
    playEffect('success');
    return;
   }

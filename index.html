@@ -51,7 +51,7 @@ button{font:inherit;cursor:pointer}
 .current{height:27px;min-height:27px;letter-spacing:6px;font-size:21px;font-weight:950;color:var(--gold);text-transform:uppercase;text-align:center}
 .wheel-wrap{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
 .wheel{position:relative;width:min(76vw,30dvh,278px);aspect-ratio:1;flex:none;border-radius:50%;background:radial-gradient(circle,#285447 0%,#1a3c34 64%,#16352e 65%);border:1px solid #ffffff17;box-shadow:inset 0 0 35px #071d18aa,0 10px 28px #06171355;touch-action:none;user-select:none}
-.letter{position:absolute;left:50%;top:50%;width:clamp(43px,12vw,52px);height:clamp(43px,12vw,52px);transform:translate(-50%,-50%);border:0;border-radius:50%;background:linear-gradient(145deg,#fff4d8,#e7c987);color:#274438;font-size:22px;font-weight:950;box-shadow:0 4px 0 #a77c3f,0 8px 15px #06171355;touch-action:none;user-select:none;display:grid;place-items:center;padding:0}
+.letter{position:absolute;left:50%;top:50%;width:clamp(48px,13vw,58px);height:clamp(48px,13vw,58px);transform:translate(-50%,-50%);border:0;border-radius:50%;background:linear-gradient(145deg,#fff4d8,#e7c987);color:#274438;font-size:24px;font-weight:950;box-shadow:0 4px 0 #a77c3f,0 8px 15px #06171355;touch-action:none;user-select:none;display:grid;place-items:center;padding:0}
 .letter.selected{background:linear-gradient(145deg,#d9e9a8,#8fc69a);color:#17382d;box-shadow:0 4px 0 #507d59,0 8px 15px #06171355;transform:translate(-50%,-50%) scale(1.06)}
 .actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin:0 0 2px}
 .actions .action{padding:9px 4px;font-size:12px;min-height:42px}
@@ -122,7 +122,7 @@ body:before{content:none}
 .current{height:23px;min-height:23px}
 .wheel-wrap{flex:1;min-height:0;display:grid;grid-template-columns:minmax(48px,1fr) auto minmax(48px,1fr);align-items:center;justify-items:center;gap:5px}
 .wheel{width:min(57vw,25dvh,220px);max-width:220px;background:radial-gradient(circle,#7cae83cc 0%,#3d785eaa 64%,#285b48aa 65%);border:1px solid #ffffff55;box-shadow:inset 0 0 30px #143f2c55,0 10px 24px #0d352b33;backdrop-filter:blur(8px)}
-.letter{width:clamp(39px,10vw,49px);height:clamp(39px,10vw,49px);background:linear-gradient(145deg,#fff9e8,#e8d6a7);box-shadow:0 3px 0 #a98f5e,0 7px 14px #153e2c33}
+.letter{width:clamp(44px,11vw,54px);height:clamp(44px,11vw,54px);background:linear-gradient(145deg,#fff9e8,#e8d6a7);box-shadow:0 3px 0 #a98f5e,0 7px 14px #153e2c33}
 .wheel-side{display:grid;gap:9px;width:100%;align-content:center}
 .wheel-side .action{width:100%;min-width:0;padding:9px 3px;font-size:11px;min-height:42px;line-height:1.15}
 .actions{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:7px;margin:0}
@@ -183,7 +183,7 @@ body:before{content:none}
 .current{height:23px;min-height:23px}
 .wheel-wrap{flex:1;min-height:0;display:grid;grid-template-columns:minmax(48px,1fr) auto minmax(48px,1fr);align-items:center;justify-items:center;gap:5px}
 .wheel{width:min(57vw,25dvh,220px);max-width:220px;background:radial-gradient(circle,#7cae83cc 0%,#3d785eaa 64%,#285b48aa 65%);border:1px solid #ffffff55;box-shadow:inset 0 0 30px #143f2c55,0 10px 24px #0d352b33;backdrop-filter:blur(8px)}
-.letter{width:clamp(39px,10vw,49px);height:clamp(39px,10vw,49px);background:linear-gradient(145deg,#fff9e8,#e8d6a7);box-shadow:0 3px 0 #a98f5e,0 7px 14px #153e2c33}
+.letter{width:clamp(44px,11vw,54px);height:clamp(44px,11vw,54px);background:linear-gradient(145deg,#fff9e8,#e8d6a7);box-shadow:0 3px 0 #a98f5e,0 7px 14px #153e2c33}
 .wheel-side{display:grid;gap:9px;width:100%;align-content:center}
 .wheel-side .action{width:100%;min-width:0;padding:9px 3px;font-size:11px;min-height:42px;line-height:1.15}
 .actions{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:7px;margin:0}
@@ -256,7 +256,7 @@ body.in-game .top{display:none}
       <h1>Wordgrove</h1>
       <p>Swipe letters, discover words, and watch your vocabulary grow.</p>
     </div>
-    <div class="app-version" id="homeVersion">Wordgrove v3.5.10</div>
+    <div class="app-version" id="homeVersion">Wordgrove v3.5.11</div>
     <div class="home-stats">
       <div class="stat-card"><strong id="homeLevel">1</strong><span>Current level</span></div>
       <div class="stat-card"><strong id="homeCoins">50</strong><span>Coins</span></div>
