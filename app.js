@@ -1,4 +1,4 @@
-const APP_VERSION = '3.5.17';
+const APP_VERSION = '3.5.19';
 const $ = id => document.getElementById(id);
 const SAVE_KEY = 'wordgrove-v4-save';
 const LETTER_HINT_COST = 25, DEFINITION_HINT_COST = 15, DOUBLE_HINT_COST = 40;
@@ -491,6 +491,7 @@ function solveWord(w,reward=true){
  if(reward) state.coins+=WORD_REWARD;
  persistLevel(); updateCoins();
  playEffect('success');
+ try{ FX.burst('solve'); }catch(e){}
  if(solved.size>=levels[level].words.length){
   renderCrossword();
   finishLevel();
@@ -1074,14 +1075,91 @@ function openSoundSettings(){
 }
 
 // Original, gentle synthesized ambience and tiny nature-inspired interaction sounds.
-function audio(){if(!audioCtx){const C=window.AudioContext||window.webkitAudioContext;if(!C)return null;audioCtx=new C()}if(audioCtx.state==='suspended')audioCtx.resume();return audioCtx}
-// ---- Stage-themed audio (procedural real-world-inspired beds & cues) ----
+function audio(){
+ if(!audioCtx){
+  const C=window.AudioContext||window.webkitAudioContext;
+  if(!C) return null;
+  audioCtx=new C();
+ }
+ if(audioCtx.state==='suspended') audioCtx.resume();
+ return audioCtx;
+}
+
+/** Hybrid audio: optional real bed files under ./audio/ + procedural accents/fallback. */
+const HybridAudio = {
+  bed: null,          // HTMLAudioElement when file bed is playing
+  bedStage: null,
+  bedGain: 0.28,
+  loading: null,
+  // Preferred file names tried in order per stage
+  bedFiles: {
+    'meadow':          ['audio/meadow-bed.mp3','audio/meadow-bed.ogg','audio/meadow.mp3'],
+    'field':           ['audio/field-bed.mp3','audio/field-bed.ogg','audio/field.mp3'],
+    'moonlit-forest':  ['audio/moonlit-bed.mp3','audio/moonlit-bed.ogg','audio/moonlit-forest.mp3'],
+    'waterfall':       ['audio/waterfall-bed.mp3','audio/waterfall-bed.ogg','audio/waterfall.mp3'],
+    'autumn-grove':    ['audio/autumn-bed.mp3','audio/autumn-bed.ogg','audio/autumn-grove.mp3'],
+    'crystal-lake':    ['audio/lake-bed.mp3','audio/lake-bed.ogg','audio/crystal-lake.mp3'],
+    'misty-highlands': ['audio/highlands-bed.mp3','audio/highlands-bed.ogg','audio/misty-highlands.mp3'],
+    'sunset-valley':   ['audio/sunset-bed.mp3','audio/sunset-bed.ogg','audio/sunset-valley.mp3']
+  },
+  async tryLoadBed(stage){
+    const list=this.bedFiles[stage]||[];
+    for(const url of list){
+      try{
+        const a=new Audio();
+        a.loop=true; a.preload='auto'; a.volume=this.bedGain;
+        const ok=await new Promise((resolve)=>{
+          const onOk=()=>{ cleanup(); resolve(true); };
+          const onErr=()=>{ cleanup(); resolve(false); };
+          const cleanup=()=>{ a.removeEventListener('canplaythrough',onOk); a.removeEventListener('error',onErr); };
+          a.addEventListener('canplaythrough',onOk,{once:true});
+          a.addEventListener('error',onErr,{once:true});
+          a.src=url;
+          a.load();
+          // timeout if hangs
+          setTimeout(()=>resolve(false), 4000);
+        });
+        if(ok) return a;
+      }catch(e){}
+    }
+    return null;
+  },
+  async setStage(stage){
+    if(!musicOn){ this.stopBed(); return; }
+    if(this.bedStage===stage && this.bed && !this.bed.paused) return;
+    this.stopBed();
+    this.bedStage=stage;
+    const el=await this.tryLoadBed(stage);
+    if(el && musicOn){
+      this.bed=el;
+      try{ await el.play(); }catch(e){ /* autoplay may need gesture */ }
+    }
+  },
+  stopBed(){
+    if(this.bed){
+      try{ this.bed.pause(); this.bed.src=''; }catch(e){}
+      this.bed=null;
+    }
+    this.bedStage=null;
+  },
+  setEnabled(on){
+    if(!on) this.stopBed();
+    else if(document.body.dataset.stage) this.setStage(document.body.dataset.stage);
+  }
+};
+
 function noiseBuffer(seconds=1){
  const c=audio(); if(!c) return null;
  const n=Math.floor(c.sampleRate*seconds);
  const buf=c.createBuffer(1,n,c.sampleRate);
  const data=buf.getChannelData(0);
- for(let i=0;i<n;i++) data[i]=Math.random()*2-1;
+ let last=0;
+ for(let i=0;i<n;i++){
+  // light brown-ish noise
+  const white=Math.random()*2-1;
+  last=(last+0.02*white)/1.02;
+  data[i]=last*3.5;
+ }
  return buf;
 }
 function playNoiseBurst({duration=0.2, gain=0.03, type='bandpass', freq=1200, q=4, attack=0.01, startAt=0}={}){
@@ -1113,81 +1191,64 @@ function playTone({freq=440, duration=0.2, type='sine', gain=0.03, attack=0.01, 
 function playEffect(kind='button'){
  if(!effectsOn) return;
  const stage=document.body.dataset.stage||'meadow';
- // Interaction cues shaped like the stage's world
+ // User-tuned SFX map
  if(kind==='letter'){
-  if(stage==='meadow'){ // short bird-like chirp
-   playTone({freq:1800+Math.random()*400, duration:0.08, type:'sine', gain:0.03, slideTo:2400+Math.random()*300});
-   playTone({freq:2200, duration:0.05, type:'sine', gain:0.015, startAt:0.06, slideTo:1600});
-  } else if(stage==='field'){ // soft cricket tick
-   playNoiseBurst({duration:0.04, gain:0.02, freq:4500, q:8, type:'bandpass'});
-   playTone({freq:3200, duration:0.03, type:'square', gain:0.008});
-  } else if(stage==='moonlit-forest'){ // soft wood-knock / owl soft note
-   playTone({freq:220+Math.random()*40, duration:0.12, type:'triangle', gain:0.03});
-   playNoiseBurst({duration:0.06, gain:0.012, freq:800, q:2, type:'lowpass'});
-  } else if(stage==='waterfall'){ // water drip
-   playNoiseBurst({duration:0.09, gain:0.025, freq:2400, q:3, type:'bandpass'});
-   playTone({freq:900, duration:0.07, type:'sine', gain:0.012, slideTo:500});
-  } else if(stage==='autumn-grove'){ // leaf crunch
-   playNoiseBurst({duration:0.1, gain:0.035, freq:1800, q:1.2, type:'bandpass'});
-   playNoiseBurst({duration:0.06, gain:0.02, freq:3200, q:2, type:'highpass', startAt:0.03});
-  } else if(stage==='crystal-lake'){ // glass/water plink
-   playTone({freq:1400+Math.random()*200, duration:0.18, type:'sine', gain:0.028, slideTo:1100});
-   playTone({freq:2100, duration:0.1, type:'sine', gain:0.012, startAt:0.02});
-  } else if(stage==='misty-highlands'){ // airy breath
-   playNoiseBurst({duration:0.14, gain:0.02, freq:600, q:0.8, type:'bandpass'});
-   playTone({freq:320, duration:0.1, type:'sine', gain:0.01});
-  } else { // sunset-valley: warm soft ping
-   playTone({freq:680, duration:0.12, type:'sine', gain:0.028, slideTo:520});
-   playTone({freq:980, duration:0.08, type:'triangle', gain:0.012, startAt:0.04});
+  if(stage==='meadow' || stage==='field'){
+   // AUD-M1 style close chirps
+   playTone({freq:1700+Math.random()*500, duration:0.07, type:'sine', gain:0.028, slideTo:2300+Math.random()*200});
+   playTone({freq:2100, duration:0.05, type:'sine', gain:0.014, startAt:0.05, slideTo:1500});
+  } else if(stage==='moonlit-forest'){
+   // soft wood / quiet night
+   playTone({freq:200+Math.random()*30, duration:0.14, type:'triangle', gain:0.022});
+  } else if(stage==='waterfall'){
+   // AUD-W1 splash/drip accent
+   playNoiseBurst({duration:0.1, gain:0.03, freq:2200, q:2.5, type:'bandpass'});
+   playTone({freq:880, duration:0.08, type:'sine', gain:0.014, slideTo:420});
+  } else if(stage==='autumn-grove'){
+   // leaf crunch
+   playNoiseBurst({duration:0.11, gain:0.038, freq:1600, q:1.1, type:'bandpass'});
+   playNoiseBurst({duration:0.06, gain:0.02, freq:3000, q:2, type:'highpass', startAt:0.03});
+  } else if(stage==='crystal-lake'){
+   // rocky shore step
+   playNoiseBurst({duration:0.09, gain:0.03, freq:900, q:1.4, type:'bandpass'});
+   playTone({freq:140, duration:0.08, type:'triangle', gain:0.018});
+  } else if(stage==='misty-highlands'){
+   playNoiseBurst({duration:0.12, gain:0.022, freq:500, q:0.7, type:'bandpass'});
+  } else {
+   playTone({freq:640, duration:0.1, type:'sine', gain:0.024, slideTo:480});
   }
   return;
  }
  if(kind==='button'){
-  if(stage==='waterfall'||stage==='crystal-lake'){
-   playNoiseBurst({duration:0.08, gain:0.02, freq:2000, q:2, type:'bandpass'});
-   playTone({freq:700, duration:0.08, type:'sine', gain:0.02, slideTo:420});
-  } else if(stage==='autumn-grove'){
-   playNoiseBurst({duration:0.09, gain:0.03, freq:1600, q:1.5, type:'bandpass'});
-  } else if(stage==='moonlit-forest'||stage==='misty-highlands'){
-   playTone({freq:180, duration:0.1, type:'triangle', gain:0.025});
-  } else {
-   playTone({freq:720, duration:0.09, type:'sine', gain:0.025, slideTo:380});
-  }
+  if(stage==='autumn-grove') playNoiseBurst({duration:0.08, gain:0.025, freq:1500, q:1.3, type:'bandpass'});
+  else if(stage==='waterfall') playNoiseBurst({duration:0.07, gain:0.02, freq:2000, q:2, type:'bandpass'});
+  else if(stage==='crystal-lake') playNoiseBurst({duration:0.07, gain:0.022, freq:700, q:1.2, type:'bandpass'});
+  else playTone({freq:700, duration:0.08, type:'sine', gain:0.022, slideTo:360});
   return;
  }
  // success
- if(stage==='meadow'){
-  playTone({freq:1600, duration:0.1, type:'sine', gain:0.03, slideTo:2200});
-  playTone({freq:2000, duration:0.1, type:'sine', gain:0.025, startAt:0.08, slideTo:2600});
-  playTone({freq:2400, duration:0.12, type:'sine', gain:0.02, startAt:0.16, slideTo:1800});
- } else if(stage==='field'){
-  for(let i=0;i<4;i++) playNoiseBurst({duration:0.03, gain:0.018, freq:4000+i*200, q:10, type:'bandpass', startAt:i*0.05});
-  playTone({freq:1200, duration:0.15, type:'triangle', gain:0.02, startAt:0.1});
+ if(stage==='meadow'||stage==='field'){
+  playTone({freq:1600, duration:0.09, type:'sine', gain:0.03, slideTo:2100});
+  playTone({freq:2000, duration:0.1, type:'sine', gain:0.022, startAt:0.08, slideTo:2600});
  } else if(stage==='moonlit-forest'){
-  playTone({freq:280, duration:0.25, type:'sine', gain:0.035, slideTo:220});
-  playTone({freq:220, duration:0.3, type:'sine', gain:0.03, startAt:0.2, slideTo:180});
+  playTone({freq:280, duration:0.28, type:'sine', gain:0.03, slideTo:220});
+  playTone({freq:220, duration:0.32, type:'sine', gain:0.024, startAt:0.35, slideTo:180});
  } else if(stage==='waterfall'){
-  playNoiseBurst({duration:0.25, gain:0.04, freq:1800, q:0.7, type:'bandpass'});
-  playTone({freq:600, duration:0.2, type:'sine', gain:0.02, startAt:0.05, slideTo:900});
+  playNoiseBurst({duration:0.28, gain:0.04, freq:1700, q:0.8, type:'bandpass'});
+  playTone({freq:600, duration:0.18, type:'sine', gain:0.02, startAt:0.05, slideTo:900});
  } else if(stage==='autumn-grove'){
-  playNoiseBurst({duration:0.18, gain:0.04, freq:1400, q:1, type:'bandpass'});
+  playNoiseBurst({duration:0.2, gain:0.04, freq:1400, q:1, type:'bandpass'});
   playNoiseBurst({duration:0.12, gain:0.03, freq:2800, q:1.5, type:'highpass', startAt:0.08});
-  playTone({freq:520, duration:0.2, type:'triangle', gain:0.02, startAt:0.05});
  } else if(stage==='crystal-lake'){
-  playTone({freq:1200, duration:0.25, type:'sine', gain:0.03});
-  playTone({freq:1800, duration:0.2, type:'sine', gain:0.022, startAt:0.06});
-  playTone({freq:2400, duration:0.18, type:'sine', gain:0.016, startAt:0.12});
- } else if(stage==='misty-highlands'){
-  playNoiseBurst({duration:0.35, gain:0.03, freq:400, q:0.6, type:'bandpass'});
-  playTone({freq:240, duration:0.3, type:'sine', gain:0.025, slideTo:180});
+  playNoiseBurst({duration:0.12, gain:0.03, freq:800, q:1, type:'bandpass'});
+  playTone({freq:420, duration:0.15, type:'triangle', gain:0.02, startAt:0.04});
  } else {
-  playTone({freq:540, duration:0.2, type:'sine', gain:0.03, slideTo:720});
-  playTone({freq:720, duration:0.22, type:'triangle', gain:0.025, startAt:0.1, slideTo:900});
+  playTone({freq:520, duration:0.18, type:'sine', gain:0.028, slideTo:700});
  }
 }
 
 let musicChord=0;
-let ambientNodes=[]; // active loop nodes to stop on stage change
+let ambientNodes=[];
 
 function stopAmbientNodes(){
  for(const n of ambientNodes){
@@ -1198,134 +1259,122 @@ function stopAmbientNodes(){
 }
 
 function startStageAmbient(){
- // Continuous bed layered under chord stabs — unique character per stage
+ // Procedural bed layer (always available). When a real file bed is playing,
+ // keep this quieter so hybrid = file + light accents.
  if(!musicOn) return;
  const c=audio(); if(!c) return;
  const stage=document.body.dataset.stage||'meadow';
  const now=c.currentTime;
+ const hasFileBed = !!(HybridAudio.bed && !HybridAudio.bed.paused);
+ const bedMul = hasFileBed ? 0.35 : 1.0;
 
  function addNoiseLoop({gain=0.008, freq=800, q=1, type='bandpass', lfoRate=0.1, lfoDepth=0.004}={}){
   const buf=noiseBuffer(2); if(!buf) return;
   const src=c.createBufferSource(); src.buffer=buf; src.loop=true;
   const filter=c.createBiquadFilter(); filter.type=type; filter.frequency.value=freq; filter.Q.value=q;
-  const g=c.createGain(); g.gain.value=gain;
-  // gentle amplitude sway
+  const g=c.createGain(); g.gain.value=gain*bedMul;
   const lfo=c.createOscillator(); const lfoG=c.createGain();
-  lfo.frequency.value=lfoRate; lfoG.gain.value=lfoDepth;
+  lfo.frequency.value=lfoRate; lfoG.gain.value=lfoDepth*bedMul;
   lfo.connect(lfoG); lfoG.connect(g.gain);
   src.connect(filter); filter.connect(g); g.connect(c.destination);
   src.start(now); lfo.start(now);
   ambientNodes.push(src,lfo);
  }
 
+ // Stage beds tuned to user choices
  if(stage==='meadow'){
-  // soft air + occasional chirps handled in musicNote
-  addNoiseLoop({gain:0.006, freq:1200, q:0.7, type:'bandpass', lfoRate:0.08, lfoDepth:0.003});
+  // AUD-M2 denser chorus feel via layered air + will chirp in musicNote
+  addNoiseLoop({gain:0.007, freq:1400, q:0.8, type:'bandpass', lfoRate:0.07, lfoDepth:0.003});
+  addNoiseLoop({gain:0.004, freq:2800, q:2, type:'bandpass', lfoRate:0.12, lfoDepth:0.002});
  } else if(stage==='field'){
-  // open air, higher insect band
-  addNoiseLoop({gain:0.007, freq:3500, q:2, type:'bandpass', lfoRate:0.15, lfoDepth:0.003});
-  addNoiseLoop({gain:0.004, freq:600, q:0.5, type:'lowpass', lfoRate:0.05, lfoDepth:0.002});
+  addNoiseLoop({gain:0.008, freq:3200, q:2.2, type:'bandpass', lfoRate:0.14, lfoDepth:0.003});
+  addNoiseLoop({gain:0.005, freq:700, q:0.6, type:'lowpass', lfoRate:0.05, lfoDepth:0.002});
  } else if(stage==='moonlit-forest'){
-  // dark wind through trees
-  addNoiseLoop({gain:0.01, freq:280, q:0.6, type:'bandpass', lfoRate:0.06, lfoDepth:0.005});
-  addNoiseLoop({gain:0.005, freq:900, q:1.2, type:'bandpass', lfoRate:0.04, lfoDepth:0.002});
+  // AUD-N2 quieter, more space
+  addNoiseLoop({gain:0.008, freq:260, q:0.55, type:'bandpass', lfoRate:0.04, lfoDepth:0.004});
  } else if(stage==='waterfall'){
-  // broadband water roar
-  addNoiseLoop({gain:0.014, freq:1100, q:0.5, type:'bandpass', lfoRate:0.2, lfoDepth:0.004});
-  addNoiseLoop({gain:0.008, freq:4000, q:0.8, type:'highpass', lfoRate:0.3, lfoDepth:0.003});
+  // AUD-W2: quieter filtered roar (bed), not full blast
+  addNoiseLoop({gain:0.01, freq:900, q:0.55, type:'bandpass', lfoRate:0.15, lfoDepth:0.003});
+  addNoiseLoop({gain:0.005, freq:2800, q:0.9, type:'highpass', lfoRate:0.22, lfoDepth:0.002});
  } else if(stage==='autumn-grove'){
-  // dry rustle bed
-  addNoiseLoop({gain:0.009, freq:2200, q:1, type:'bandpass', lfoRate:0.12, lfoDepth:0.004});
-  addNoiseLoop({gain:0.005, freq:500, q:0.7, type:'lowpass', lfoRate:0.07, lfoDepth:0.002});
+  // AUD-A1 dry leaf rustle + wind
+  addNoiseLoop({gain:0.01, freq:2000, q:1.1, type:'bandpass', lfoRate:0.11, lfoDepth:0.004});
+  addNoiseLoop({gain:0.005, freq:450, q:0.7, type:'lowpass', lfoRate:0.06, lfoDepth:0.002});
  } else if(stage==='crystal-lake'){
-  // quiet water surface
-  addNoiseLoop({gain:0.006, freq:1800, q:1.5, type:'bandpass', lfoRate:0.09, lfoDepth:0.002});
-  addNoiseLoop({gain:0.004, freq:400, q:0.8, type:'lowpass', lfoRate:0.05, lfoDepth:0.002});
+  // No water bed — open air + occasional raven-like calls in musicNote
+  addNoiseLoop({gain:0.005, freq:600, q:0.7, type:'bandpass', lfoRate:0.05, lfoDepth:0.002});
+  addNoiseLoop({gain:0.003, freq:1800, q:1.5, type:'bandpass', lfoRate:0.08, lfoDepth:0.001});
  } else if(stage==='misty-highlands'){
-  // strong wind
-  addNoiseLoop({gain:0.015, freq:450, q:0.5, type:'bandpass', lfoRate:0.05, lfoDepth:0.006});
-  addNoiseLoop({gain:0.006, freq:200, q:0.7, type:'lowpass', lfoRate:0.03, lfoDepth:0.003});
- } else { // sunset-valley
+  addNoiseLoop({gain:0.014, freq:400, q:0.5, type:'bandpass', lfoRate:0.04, lfoDepth:0.006});
+ } else {
   addNoiseLoop({gain:0.007, freq:900, q:0.8, type:'bandpass', lfoRate:0.07, lfoDepth:0.003});
-  addNoiseLoop({gain:0.004, freq:2500, q:2, type:'bandpass', lfoRate:0.11, lfoDepth:0.002});
  }
 }
 
 function musicNote(){
  if(!musicOn) return;
- const c=audio(); if(!c) return;
  const stage=document.body.dataset.stage||'meadow';
- const now=c.currentTime;
  musicChord++;
+ const hasFileBed = !!(HybridAudio.bed && !HybridAudio.bed.paused);
+ // When real bed is playing, only sparse accents
+ if(hasFileBed && musicChord % 2 === 0) return;
 
  if(stage==='meadow'){
-  // Bird chirp phrase
-  const base=1600+Math.random()*400;
-  playTone({freq:base, duration:0.09, type:'sine', gain:0.02, slideTo:base+500});
-  playTone({freq:base+300, duration:0.07, type:'sine', gain:0.015, startAt:0.1, slideTo:base+100});
-  if(musicChord%3===0){
-   playTone({freq:base-200, duration:0.08, type:'sine', gain:0.012, startAt:0.22, slideTo:base+200});
-  }
+  // denser bird-like phrases (AUD-M2 bed character via events)
+  const base=1500+Math.random()*600;
+  playTone({freq:base, duration:0.08, type:'sine', gain:0.018, slideTo:base+400});
+  playTone({freq:base+250, duration:0.06, type:'sine', gain:0.012, startAt:0.09, slideTo:base});
+  if(musicChord%2===0) playTone({freq:base-150, duration:0.07, type:'sine', gain:0.01, startAt:0.2, slideTo:base+100});
  } else if(stage==='field'){
-  // Cricket pulses
-  for(let i=0;i<5;i++){
-   playNoiseBurst({duration:0.025, gain:0.015, freq:4200, q:12, type:'bandpass', startAt:i*0.07});
-  }
-  if(musicChord%2===0) playTone({freq:180, duration:0.4, type:'sine', gain:0.008});
+  for(let i=0;i<4;i++) playNoiseBurst({duration:0.025, gain:0.012, freq:4200, q:11, type:'bandpass', startAt:i*0.06});
  } else if(stage==='moonlit-forest'){
-  // Owl hoot (two-note)
-  playTone({freq:320, duration:0.35, type:'sine', gain:0.025, slideTo:280});
-  playTone({freq:260, duration:0.45, type:'sine', gain:0.022, startAt:0.4, slideTo:230});
-  if(musicChord%4===0) playNoiseBurst({duration:0.5, gain:0.01, freq:300, q:0.6, type:'bandpass'});
+  // AUD-N2 rare owl
+  if(musicChord%3===0){
+   playTone({freq:300, duration:0.35, type:'sine', gain:0.02, slideTo:260});
+   playTone({freq:250, duration:0.4, type:'sine', gain:0.016, startAt:0.45, slideTo:210});
+  }
  } else if(stage==='waterfall'){
-  // Extra splash accents on the constant water bed
-  playNoiseBurst({duration:0.3, gain:0.025, freq:1600+Math.random()*800, q:0.8, type:'bandpass'});
-  playNoiseBurst({duration:0.15, gain:0.02, freq:3500, q:1.2, type:'highpass', startAt:0.1});
+  // light drip accents over quiet bed
+  playNoiseBurst({duration:0.2, gain:0.018, freq:1500+Math.random()*600, q:0.9, type:'bandpass'});
  } else if(stage==='autumn-grove'){
-  // Wind + leaf gusts
-  playNoiseBurst({duration:0.5, gain:0.03, freq:1800, q:0.9, type:'bandpass'});
-  playNoiseBurst({duration:0.25, gain:0.022, freq:3000, q:1.4, type:'highpass', startAt:0.15});
-  playTone({freq:150+Math.random()*40, duration:0.6, type:'triangle', gain:0.01});
+  playNoiseBurst({duration:0.45, gain:0.025, freq:1700, q:0.95, type:'bandpass'});
+  playNoiseBurst({duration:0.2, gain:0.018, freq:2900, q:1.3, type:'highpass', startAt:0.12});
  } else if(stage==='crystal-lake'){
-  // Droplet intervals
-  for(let i=0;i<3;i++){
-   const f=1200+Math.random()*900;
-   playTone({freq:f, duration:0.2, type:'sine', gain:0.018, startAt:i*0.35, slideTo:f*0.7});
+  // distant raven-like rough call (no water)
+  if(musicChord%2===0){
+   playTone({freq:280, duration:0.22, type:'sawtooth', gain:0.012, slideTo:220});
+   playTone({freq:240, duration:0.18, type:'sawtooth', gain:0.01, startAt:0.2, slideTo:190});
   }
  } else if(stage==='misty-highlands'){
-  // Wind swell
-  playNoiseBurst({duration:1.2, gain:0.035, freq:350+Math.random()*150, q:0.5, type:'bandpass'});
-  playTone({freq:90, duration:1.0, type:'sine', gain:0.012});
+  playNoiseBurst({duration:1.0, gain:0.03, freq:320+Math.random()*120, q:0.5, type:'bandpass'});
  } else {
-  // Sunset: warm low pad stab + distant insect
-  playTone({freq:196, duration:1.2, type:'sine', gain:0.012});
-  playTone({freq:246.94, duration:1.2, type:'sine', gain:0.01, startAt:0.05});
-  playTone({freq:293.66, duration:1.0, type:'triangle', gain:0.008, startAt:0.1});
-  if(musicChord%2===0){
-   for(let i=0;i<3;i++) playNoiseBurst({duration:0.03, gain:0.012, freq:3800, q:10, type:'bandpass', startAt:0.4+i*0.08});
-  }
+  playTone({freq:196, duration:1.0, type:'sine', gain:0.01});
+  playTone({freq:247, duration:1.0, type:'sine', gain:0.008, startAt:0.05});
  }
 }
 
 function stopMusicForBackground(){
  clearInterval(musicTimer); musicTimer=null;
  stopAmbientNodes();
+ HybridAudio.stopBed();
  if(audioCtx&&audioCtx.state==='running') audioCtx.suspend().catch(()=>{});
 }
 function resumeMusic(){
  if(!musicOn||document.hidden) return;
  const c=audio();
  if(c&&c.state==='suspended') c.resume().catch(()=>{});
- if(!musicTimer){
-  startStageAmbient();
-  musicNote();
-  const intervals={
-   'meadow':3200,'field':2800,'moonlit-forest':5200,'waterfall':2400,
-   'autumn-grove':3600,'crystal-lake':3000,'misty-highlands':4800,'sunset-valley':4000
-  };
-  const stage=document.body.dataset.stage||'meadow';
-  musicTimer=setInterval(musicNote, intervals[stage]||3600);
- }
+ const stage=document.body.dataset.stage||'meadow';
+ HybridAudio.setStage(stage).then(()=>{
+  if(!musicTimer){
+   startStageAmbient();
+   musicNote();
+   const intervals={
+    'meadow':2600,'field':2800,'moonlit-forest':5600,'waterfall':3000,
+    'autumn-grove':3400,'crystal-lake':4200,'misty-highlands':5000,'sunset-valley':4000
+   };
+   musicTimer=setInterval(musicNote, intervals[stage]||3600);
+  }
+ });
 }
 function restartMusicForStage(){
  if(!musicOn) return;
@@ -1347,14 +1396,15 @@ document.addEventListener('click',e=>{if(e.target.closest('button')&&!e.target.c
 $('wheel').addEventListener('pointerdown',handleDown);document.addEventListener('pointermove',handleMove,{passive:false});document.addEventListener('pointerup',handleUp);document.addEventListener('pointercancel',handleUp);
 
 // ---- Lightweight stage particle FX (canvas 2d, capped count) ----
+// ---- Lightweight stage particle FX (canvas 2d, capped count) ----
 const FX = {
   particles: [],
-  windX: 0,
-  windY: 0,
-  max: 42,
+  max: 48,
   last: 0,
   stage: 'meadow',
   reduced: false,
+  wheelCX: 0,
+  wheelCY: 0,
   init(){
     this.canvas = $('fxCanvas');
     if(!this.canvas) return;
@@ -1362,10 +1412,9 @@ const FX = {
     this.reduced = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
     this.resize();
     window.addEventListener('resize', ()=>this.resize(), { passive:true });
-    // Background tap impulse (only when not interacting with UI controls)
     document.addEventListener('pointerdown', (e)=>{
-      if(e.target.closest('button, .letter, .cross-cell, .modal, .action, input')) return;
-      this.impulse(e.clientX, e.clientY, 1.2);
+      if(e.target.closest('button, .letter, .cross-cell, .modal, .action, input, .word-list')) return;
+      this.impulse(e.clientX, e.clientY, 1.4);
     }, { passive:true });
     requestAnimationFrame((t)=>this.frame(t));
   },
@@ -1380,107 +1429,179 @@ const FX = {
     this.dpr = dpr;
     this.w = w; this.h = h;
   },
+  /** Point CSS + JS at the correct photo (handles base path on GitHub Pages). */
+  applyBackground(key){
+    const el = $('bgMotion');
+    if(!el) return;
+    const k = key || 'meadow';
+    // Flat filenames so GitHub web UI upload works (no folders required):
+    // bg-meadow.jpg, bg-field.jpg, ...
+    const candidates = [
+      'bg-' + k + '.jpg',
+      'bg/' + k + '.jpg',
+      './bg-' + k + '.jpg'
+    ];
+    const tryNext = (i)=>{
+      if(i>=candidates.length){
+        console.warn('Wordgrove: no background found for', k, candidates);
+        return;
+      }
+      const src = candidates[i];
+      const img = new Image();
+      img.onload = ()=>{ el.style.backgroundImage = 'url("' + src + '")'; };
+      img.onerror = ()=> tryNext(i+1);
+      img.src = src;
+    };
+    tryNext(0);
+  },
   setStage(key){
     this.stage = key || 'meadow';
+    this.applyBackground(this.stage);
     this.particles = [];
     if(this.reduced) return;
-    const n = this.stage==='autumn-grove' ? 36 : this.stage==='waterfall' ? 28 : 24;
+    const n = this.stage==='autumn-grove' ? 40 : this.stage==='waterfall' ? 32 : 28;
     for(let i=0;i<n;i++) this.particles.push(this.spawn(true));
   },
   spawn(randomY){
     const s = this.stage;
-    const base = {
-      x: Math.random()*this.w,
-      y: randomY ? Math.random()*this.h : -12,
-      vx: (Math.random()-0.5)*0.25,
+    const w = this.w || 300, h = this.h || 500;
+    const p = {
+      x: Math.random() * w,
+      y: randomY ? Math.random() * h : -16,
+      vx: (Math.random()-0.5)*0.3,
       vy: 0.15 + Math.random()*0.35,
-      r: 1.2 + Math.random()*2.4,
-      a: 0.25 + Math.random()*0.45,
+      r: 2 + Math.random()*3,
+      a: 0.55 + Math.random()*0.35,
       rot: Math.random()*Math.PI*2,
-      vr: (Math.random()-0.5)*0.04,
-      kind: 'dot'
+      vr: (Math.random()-0.5)*0.06,
+      kind: 'dot',
+      color: '#fff4c2'
     };
     if(s==='autumn-grove'){
-      base.kind='leaf'; base.r=3+Math.random()*4; base.vy=0.35+Math.random()*0.55;
-      base.color=`hsl(${18+Math.random()*28},70%,${45+Math.random()*20}%)`;
+      p.kind = 'leaf';
+      p.r = 4 + Math.random()*5;
+      p.vy = 0.4 + Math.random()*0.7;
+      const hues = ['#c45c26','#d4762c','#b33b1a','#e8a04a','#8b3a1a'];
+      p.color = hues[(Math.random()*hues.length)|0];
     } else if(s==='meadow' || s==='field'){
-      base.kind='pollen'; base.color='rgba(255,250,200,0.7)'; base.vy=0.08+Math.random()*0.2;
-    } else if(s==='waterfall' || s==='crystal-lake'){
-      base.kind='mist'; base.color='rgba(220,240,255,0.5)'; base.r=1+Math.random()*2; base.vy=0.4+Math.random()*0.6;
+      p.kind = 'pollen';
+      p.color = Math.random()>0.5 ? '#f5e6a3' : '#dff0a8';
+      p.r = 1.5 + Math.random()*2;
+      p.vy = 0.05 + Math.random()*0.15;
+    } else if(s==='waterfall'){
+      p.kind = 'mist';
+      p.color = 'rgba(200,230,255,0.85)';
+      p.r = 1.5 + Math.random()*2.5;
+      p.vy = 0.5 + Math.random()*0.8;
+    } else if(s==='crystal-lake'){
+      p.kind = 'spark';
+      p.color = 'rgba(180,220,255,0.9)';
+      p.r = 1.2 + Math.random()*2;
+      p.vy = 0.08 + Math.random()*0.2;
     } else if(s==='moonlit-forest'){
-      base.kind='mote'; base.color='rgba(180,210,255,0.45)'; base.vy=0.05+Math.random()*0.15;
+      p.kind = 'mote';
+      p.color = 'rgba(160,200,255,0.75)';
+      p.r = 1.2 + Math.random()*2;
+      p.vy = 0.04 + Math.random()*0.12;
     } else if(s==='misty-highlands'){
-      base.kind='fog'; base.color='rgba(230,235,230,0.25)'; base.r=8+Math.random()*18; base.vy=0.04+Math.random()*0.08;
+      p.kind = 'fog';
+      p.color = 'rgba(220,230,225,0.35)';
+      p.r = 10 + Math.random()*20;
+      p.vy = 0.03 + Math.random()*0.08;
     } else {
-      base.kind='ember'; base.color='rgba(255,200,120,0.45)'; base.vy=0.06+Math.random()*0.12;
+      p.kind = 'ember';
+      p.color = Math.random()>0.5 ? '#ffb060' : '#ffd090';
+      p.r = 1.5 + Math.random()*2.5;
+      p.vy = 0.05 + Math.random()*0.15;
     }
-    return base;
+    return p;
   },
   impulse(x,y,strength=1){
     if(this.reduced) return;
     for(const p of this.particles){
       const dx=p.x-x, dy=p.y-y;
       const d2=dx*dx+dy*dy;
-      if(d2<16000){
+      if(d2<22000){
         const d=Math.sqrt(d2)+0.01;
-        p.vx += (dx/d)*strength*0.8;
-        p.vy += (dy/d)*strength*0.5;
+        p.vx += (dx/d)*strength*1.1;
+        p.vy += (dy/d)*strength*0.7;
       }
     }
   },
-  /** Call from letter-wheel swipe with approximate velocity */
+  /** Wind from letter-wheel region — stronger near the wheel, not a global pan */
   swirl(dx, dy){
-    this.windX = Math.max(-2.5, Math.min(2.5, this.windX + dx*0.02));
-    this.windY = Math.max(-1.5, Math.min(1.5, this.windY + dy*0.015));
+    // Local gust near the letter wheel — not a global pan of every particle
+    const wheel = $('wheel');
+    let cx = this.w * 0.5, cy = this.h * 0.72;
+    if(wheel){
+      const r = wheel.getBoundingClientRect();
+      cx = r.left + r.width/2;
+      cy = r.top + r.height/2;
+    }
+    const force = Math.min(2.5, Math.hypot(dx, dy) * 0.08);
+    if(force < 0.02) return;
+    const ang = Math.atan2(dy, dx);
+    for(const p of this.particles){
+      const ddx = p.x - cx, ddy = p.y - cy;
+      const dist = Math.sqrt(ddx*ddx + ddy*ddy) + 1;
+      if(dist > 220) continue;
+      const falloff = 1 - dist/220;
+      p.vx += Math.cos(ang) * force * falloff;
+      p.vy += Math.sin(ang) * force * falloff * 0.7;
+    }
   },
   burst(kind='solve'){
     if(this.reduced) return;
-    const cx=this.w*0.5, cy=this.h*0.38;
-    const extra = kind==='level' ? 18 : 10;
+    const board = $('board');
+    let cx = this.w * 0.5, cy = this.h * 0.35;
+    if(board){
+      const r = board.getBoundingClientRect();
+      cx = r.left + r.width/2;
+      cy = r.top + r.height/2;
+    }
+    const extra = kind==='level' ? 22 : 14;
     for(let i=0;i<extra;i++){
-      const p=this.spawn(false);
-      p.x=cx+(Math.random()-0.5)*80;
-      p.y=cy+(Math.random()-0.5)*40;
-      p.vx=(Math.random()-0.5)*3;
-      p.vy=-0.5-Math.random()*2;
-      p.a=0.7;
+      const p = this.spawn(false);
+      p.x = cx + (Math.random()-0.5)*100;
+      p.y = cy + (Math.random()-0.5)*60;
+      p.vx = (Math.random()-0.5)*4;
+      p.vy = -1 - Math.random()*3;
+      p.a = 0.9;
+      p.r = (p.r||2) * 1.4;
       this.particles.push(p);
     }
-    if(this.particles.length>this.max+20) this.particles.length=this.max+20;
+    if(this.particles.length > this.max + 30) this.particles.splice(0, this.particles.length - (this.max + 30));
   },
   frame(t){
     requestAnimationFrame((nt)=>this.frame(nt));
     if(!this.ctx || this.reduced) return;
     const dt = Math.min(40, t - (this.last||t));
     this.last = t;
-    // damp wind
-    this.windX *= 0.96; this.windY *= 0.96;
     const ctx=this.ctx, dpr=this.dpr||1;
     ctx.clearRect(0,0,this.canvas.width,this.canvas.height);
     ctx.save();
     ctx.scale(dpr,dpr);
     for(let i=this.particles.length-1;i>=0;i--){
       const p=this.particles[i];
-      p.vx += this.windX*0.02;
-      p.vy += this.windY*0.015;
       p.x += p.vx * (dt/16);
       p.y += p.vy * (dt/16);
       p.rot += p.vr;
-      p.vx *= 0.99; p.vy *= 0.995;
-      if(p.y>this.h+20 || p.x<-30 || p.x>this.w+30){
+      p.vx *= 0.985; p.vy *= 0.992;
+      if(p.y>this.h+24 || p.x<-40 || p.x>this.w+40){
         this.particles[i]=this.spawn(false);
         continue;
       }
-      ctx.globalAlpha = p.a;
+      ctx.globalAlpha = Math.max(0.05, Math.min(1, p.a));
+      ctx.fillStyle = p.color;
       if(p.kind==='leaf'){
-        ctx.fillStyle=p.color;
         ctx.save();
         ctx.translate(p.x,p.y);
         ctx.rotate(p.rot);
-        ctx.fillRect(-p.r, -p.r*0.5, p.r*2, p.r);
+        ctx.beginPath();
+        ctx.ellipse(0,0, p.r*1.4, p.r*0.6, 0, 0, Math.PI*2);
+        ctx.fill();
         ctx.restore();
       } else {
-        ctx.fillStyle=p.color||'rgba(255,255,255,0.5)';
         ctx.beginPath();
         ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
         ctx.fill();
