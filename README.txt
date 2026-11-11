@@ -1,84 +1,24 @@
+Wordgrove 3.5.13
+================
+AI-created word puzzle game.
+Live: https://coldgenetics.github.io/Wordgrove/
 
-=== Wordgrove 3.4 (fixed) ===
-Root cause of 3.4 menu/UI failure:
-The published 3.4 app.js was incomplete — critical functions from 3.2 were dropped
-(openGameMenu, openLevels, stageForLevel, audio stack, etc.), so event handlers
-threw ReferenceErrors and the main menu appeared dead.
+3.5.13
+- Docs updated (README version + changelog).
+- Coin icon/number outlined for visibility on all stage backgrounds.
+- Settings labels: Music / Sounds (defaults On; prefs saved).
+- Unique music + sound effects per stage.
 
-This build restores the full 3.2 surface area and layers the intended 3.4 fixes:
-- Double-rAF + ResizeObserver so wheel/crossword paint on first layout
-- Improved drawWheel size guard (retries until measured)
-- Pointer gesture handlers that reliably clear selection
-- Level-complete transition screen (points + bonus words)
-- APP_VERSION badge in modals
+3.5.12
+- Level select no longer jumps to the wrong level; stage opens level summary.
+- Testing tools via ?dev=1 (auto-solve, unlock, jump, reset).
 
-WORDGROVE 3.4 — ANDROID PWA
+3.5.11
+- Reject acronym/abbrev/place/surname/slang bonus words.
+- Bonus coins: 0 for 2–3 letters, then length-3.
+- Larger non-overlapping wheel tiles.
 
-WHAT’S NEW IN 3.4
-- Added a subtle Wordgrove v3.4 label at the bottom of modal windows.
-- Updated the service-worker cache version to wordgrove-v8.
+3.5.10
+- Definition hint fix.
 
-WHAT'S NEW IN 3.3
-- More reliable initial crossword and letter-wheel rendering after screen layout is ready.
-- Letter selection is cleared after every completed or cancelled pointer gesture.
-- Level completion is checked once all crossword answers are solved.
-- Level transition screen summarizes points gained and bonus words found.
-
-WORDGROVE 3.1 — ANDROID PWA
-
-WHAT'S NEW
-- Real crossword-style intersecting word layouts.
-- Swipe continuously across wheel tiles to form puzzle words; repeated letters have the required number of tiles.
-- The letter wheel starts with 4 tiles at Level 1, grows to 5 tiles at Level 2, 6 tiles at Level 941, and 7 tiles at Level 2,809. Maximum answer length is seven letters; every crossword answer remains spellable from its wheel, which can also include bonus letters.
-- Three hint types: reveal one letter (25 coins), show the selected word's definition (15 coins), or reveal two random letters (40 coins). Tap a crossword square to select a word before using a definition hint.
-- Words list: solved puzzle words with definitions. Definitions are bundled for the opening level and can be fetched from the free Dictionary API for other words when online, then cached on the device.
-- Extra words list: valid English words not in the current crossword earn 1 coin for 2 letters, 2 for 3, 3 for 4, 4 for 5, and 5 for 6–7 letters.
-- Ambient original synthesized background music and gentle nature-inspired sound effects. Music and sound effects have separate controls. Browsers require a tap before audio can begin.
-- Main menu shows current level, coin balance, and total puzzle words solved.
-- Portrait layout is designed to fit the phone screen without page scrolling.
-- 5,000 levels, with common short words early and longer words later.
-
-INSTALL / UPDATE
-1. Upload the CONTENTS of this folder to the root of your existing public GitHub repository, overwriting files with the same names. Keep the existing GitHub workflow and README.md.
-2. Commit the changes.
-3. Wait for the GitHub Pages workflow to show a green success check.
-4. Close Wordgrove on the phone and reopen it while online. The service worker cache is now wordgrove-v6. If the old version remains, reload in Chrome, close the app, and reopen it.
-5. Version 4 uses a new local save key because the opening and fifth puzzles were reordered to make the 4-tile introduction work. It starts with 50 coins at Level 1.
-
-GAME ECONOMY
-- Correct crossword answer: +5 coins.
-- Completed level: +20 coins.
-- Extra words: 1–5 coins depending on length.
-- Single-letter hint: 25 coins. Definition hint: 15 coins. Two-letter reveal: 40 coins.
-
-DEFINITIONS AND OFFLINE USE
-- Definitions for the first level are bundled. Other definitions are fetched from dictionaryapi.dev while online and cached locally after retrieval. A definition not previously cached may not be available offline.
-- Puzzle play, progress, coin balances, and cached definitions are stored locally.
-- Audio is synthesized in the browser; no music files or copyrighted recordings are included.
-
-HOSTING
-Wordgrove is an installable Progressive Web App (PWA), not a native APK. GitHub Pages serves it over HTTPS.
-
-
-WORDGROVE 3.1 UPDATE
-- Redesigned translucent meadow interface with square crossword cells and no puzzle frame.
-- Removed the top title/progress bar and Clear button; moved Words, Bonus words, Hints, and Shuffle around the wheel.
-- Added stage selection in groups of 25 levels, a game menu, and sound settings.
-- Definition hints no longer reveal the answer word; solved words are rejected with a clear message.
-- Single-letter hints now ask the player to tap the exact crossword square to reveal.
-- Bonus-word definitions use the same online lookup and local cache as puzzle words.
-- Music pauses when the app is hidden or backgrounded and resumes when it returns.
-- Stage-specific colour atmospheres are applied; stage audio themes can be expanded in a later pass.
-
-
-WORDGROVE 3.1 UPDATE
-- Redesigned translucent meadow interface with square crossword cells and no puzzle frame.
-- Removed the top title/progress bar and Clear button; moved Words, Bonus words, Hints, and Shuffle around the wheel.
-- Added stage selection in groups of 25 levels, a game menu, and sound settings.
-- Definition hints no longer reveal the answer word; solved words are rejected with a clear message.
-- Single-letter hints now ask the player to tap the exact crossword square to reveal.
-- Bonus-word definitions use the same online lookup and local cache as puzzle words.
-- Music pauses when the app is hidden or backgrounded and resumes when it returns.
-- Stage-specific colour atmospheres are applied; stage audio themes can be expanded in a later pass.
-
-Wordgrove 3.2: stage SVG backgrounds are stored beside index.html so they can be uploaded individually using the GitHub mobile app.
+See README.md for full notes and project layout.

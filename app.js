@@ -1,4 +1,4 @@
-const APP_VERSION = '3.5.12';
+const APP_VERSION = '3.5.13';
 const $ = id => document.getElementById(id);
 const SAVE_KEY = 'wordgrove-v4-save';
 const LETTER_HINT_COST = 25, DEFINITION_HINT_COST = 15, DOUBLE_HINT_COST = 40;
@@ -42,7 +42,19 @@ function isRejectedBonusWord(word){
 }
 
 let levels=[], dictionary=new Set(), definitions={}, level=0, rack=[], picked=[], solved=new Set(), revealed={}, extras=new Set(), selectedWord=null;
-let toastTimer, pointerActive=false, pointerId=null, dragged=false, startPoint=null, audioCtx=null, musicTimer=null, musicOn=false, effectsOn=true, revealMode=false, audioWasPlaying=false, completionShown=false, wheelObserver=null, boardObserver=null;
+let toastTimer, pointerActive=false, pointerId=null, dragged=false, startPoint=null, audioCtx=null, musicTimer=null, musicOn=true, effectsOn=true, revealMode=false, audioWasPlaying=false, completionShown=false, wheelObserver=null, boardObserver=null;
+(function loadAudioPrefs(){
+ try{
+  const raw=localStorage.getItem('wordgrove-audio');
+  if(raw){
+   const p=JSON.parse(raw);
+   if(typeof p.musicOn==='boolean') musicOn=p.musicOn;
+   if(typeof p.effectsOn==='boolean') effectsOn=p.effectsOn;
+  }
+ }catch{}
+})();
+function saveAudioPrefs(){try{localStorage.setItem('wordgrove-audio',JSON.stringify({musicOn,effectsOn}))}catch{}}
+
 const freshState=()=>({currentLevel:0,unlockedLevel:0,coins:50,solvedByLevel:{},revealedByLevel:{},extrasByLevel:{}});
 let state=loadState();
 function loadState(){try{const p=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');return p?{...freshState(),...p,coins:Math.max(0,+p.coins||0)}:freshState()}catch{return freshState()}}
@@ -91,6 +103,7 @@ function renderGame(){
  $('levelname').textContent=`${stage.name} · ${level+1}`;
  document.body.dataset.stage=stage.key;
  document.body.className=`stage-${stage.key} in-game`;
+ if(typeof restartMusicForStage==='function') restartMusicForStage();
  $('levelsub').textContent=`${rack.length} tiles · ${data.words.length} words`;
  if($('status')) $('status').textContent=`${solved.size} / ${data.words.length} words`;
  $('current').textContent='';
@@ -758,16 +771,142 @@ function devAutoSolve(){
  }
  say('Level auto-solved');
 }
-function openSoundSettings(){showModal('Sound settings',`<div class="menu-options"><button class="action" id="musicToggle">Background music: ${musicOn?'On':'Off'}</button><button class="action" id="effectsToggle">Nature sounds: ${effectsOn?'On':'Off'}</button></div>`);$('modal').querySelector('#musicToggle').onclick=()=>{toggleMusic();openSoundSettings()};$('modal').querySelector('#effectsToggle').onclick=()=>{toggleEffects();openSoundSettings()}}
+function openSoundSettings(){showModal('Sound settings',`<div class="menu-options"><button class="action" id="musicToggle">Music: ${musicOn?'On':'Off'}</button><button class="action" id="effectsToggle">Sounds: ${effectsOn?'On':'Off'}</button></div>`);$('modal').querySelector('#musicToggle').onclick=()=>{toggleMusic();openSoundSettings()};$('modal').querySelector('#effectsToggle').onclick=()=>{toggleEffects();openSoundSettings()}}
 
 // Original, gentle synthesized ambience and tiny nature-inspired interaction sounds.
 function audio(){if(!audioCtx){const C=window.AudioContext||window.webkitAudioContext;if(!C)return null;audioCtx=new C()}if(audioCtx.state==='suspended')audioCtx.resume();return audioCtx}
-function playEffect(kind='button'){if(!effectsOn)return;const c=audio();if(!c)return;const now=c.currentTime;const osc=c.createOscillator(),gain=c.createGain();osc.type='sine';const stageTone={'meadow':0,'field':-90,'moonlit-forest':-180,'waterfall':140,'autumn-grove':-40,'crystal-lake':90,'misty-highlands':-120,'sunset-valley':60}[document.body.dataset.stage]||0;const f=(kind==='success'?1250:kind==='letter'?1450:kind==='button'?820:560)+stageTone;osc.frequency.setValueAtTime(f,now);osc.frequency.exponentialRampToValueAtTime(kind==='button'?f*.48:f*1.65,now+(kind==='button'?.18:.11));gain.gain.setValueAtTime(.0001,now);gain.gain.exponentialRampToValueAtTime(kind==='success'?.035:.025,now+.018);gain.gain.exponentialRampToValueAtTime(.0001,now+(kind==='button'?.22:.17));osc.connect(gain).connect(c.destination);osc.start(now);osc.stop(now+(kind==='button'?.23:.18));if(kind==='success'){for(let j=0;j<2;j++){const o=c.createOscillator(),g=c.createGain(),t=now+.06+j*.14;o.type='sine';o.frequency.setValueAtTime(1500-j*180,t);o.frequency.exponentialRampToValueAtTime(2100-j*180,t+.09);g.gain.setValueAtTime(.0001,t);g.gain.linearRampToValueAtTime(.018,t+.02);g.gain.exponentialRampToValueAtTime(.0001,t+.18);o.connect(g).connect(c.destination);o.start(t);o.stop(t+.19)}}}
-let musicChord=0;function musicNote(){const c=audio();if(!c)return;const now=c.currentTime;const themes={'meadow':[[196,246.94,293.66,369.99],[164.81,196,246.94,329.63],[174.61,220,261.63,349.23]],'field':[[174.61,220,261.63,329.63],[146.83,196,246.94,293.66],[164.81,207.65,246.94,329.63]],'moonlit-forest':[[146.83,174.61,220,261.63],[130.81,164.81,196,246.94],[146.83,185,220,277.18]],'waterfall':[[220,261.63,329.63,392],[196,246.94,293.66,369.99],[174.61,220,293.66,349.23]],'autumn-grove':[[164.81,207.65,246.94,311.13],[146.83,185,220,277.18],[155.56,196,233.08,293.66]],'crystal-lake':[[207.65,261.63,311.13,415.3],[185,233.08,277.18,369.99],[196,246.94,293.66,392]],'misty-highlands':[[174.61,207.65,261.63,311.13],[155.56,196,233.08,311.13],[164.81,220,261.63,329.63]],'sunset-valley':[[185,233.08,277.18,349.23],[164.81,207.65,246.94,329.63],[174.61,220,261.63,349.23]]};const progression=themes[document.body.dataset.stage]||themes.meadow;const notes=progression[musicChord++%progression.length];for(let i=0;i<notes.length;i++){const o=c.createOscillator(),g=c.createGain();o.type='sine';o.frequency.value=notes[i];g.gain.setValueAtTime(.0001,now);g.gain.linearRampToValueAtTime(.009,now+1.4);g.gain.linearRampToValueAtTime(.0001,now+5.8);o.connect(g).connect(c.destination);o.start(now+i*.2);o.stop(now+5.9)}}
-function stopMusicForBackground(){clearInterval(musicTimer);musicTimer=null;if(audioCtx&&audioCtx.state==='running')audioCtx.suspend().catch(()=>{})}
-function resumeMusic(){if(!musicOn||document.hidden)return;const c=audio();if(c&&c.state==='suspended')c.resume().catch(()=>{});if(!musicTimer){musicNote();musicTimer=setInterval(musicNote,5700)}}
-function toggleMusic(){musicOn=!musicOn;if(musicOn){audio();musicNote();clearInterval(musicTimer);musicTimer=setInterval(musicNote,5700)}else{stopMusicForBackground()}}
-function toggleEffects(){effectsOn=!effectsOn}
+function playEffect(kind='button'){
+ if(!effectsOn) return;
+ const c=audio(); if(!c) return;
+ const now=c.currentTime;
+ const stage=document.body.dataset.stage||'meadow';
+ // Distinct timbre, pitch center, and envelope per stage
+ const profiles={
+  'meadow':         {type:'sine',     base:{success:1180,letter:1320,button:780,other:520}, detune:0,   bright:1.55, gain:0.028, attack:0.018, decay:0.17},
+  'field':          {type:'triangle', base:{success:980, letter:1100,button:640,other:440}, detune:12,  bright:1.35, gain:0.030, attack:0.022, decay:0.20},
+  'moonlit-forest': {type:'sine',     base:{success:720, letter:860, button:480,other:360}, detune:-8,  bright:1.25, gain:0.022, attack:0.035, decay:0.28},
+  'waterfall':      {type:'sawtooth', base:{success:1400,letter:1550,button:900,other:600}, detune:18,  bright:1.70, gain:0.018, attack:0.012, decay:0.14},
+  'autumn-grove':   {type:'triangle', base:{success:1050,letter:1200,button:700,other:480}, detune:-14, bright:1.40, gain:0.026, attack:0.025, decay:0.22},
+  'crystal-lake':   {type:'sine',     base:{success:1560,letter:1720,button:980,other:640}, detune:6,   bright:1.85, gain:0.024, attack:0.015, decay:0.16},
+  'misty-highlands':{type:'triangle', base:{success:820, letter:940, button:560,other:400}, detune:-20, bright:1.30, gain:0.025, attack:0.040, decay:0.30},
+  'sunset-valley':  {type:'sine',     base:{success:1120,letter:1280,button:760,other:500}, detune:10,  bright:1.50, gain:0.027, attack:0.020, decay:0.19}
+ };
+ const p=profiles[stage]||profiles.meadow;
+ const f0=(p.base[kind]||p.base.other)+p.detune;
+ const osc=c.createOscillator(), gain=c.createGain();
+ osc.type=p.type;
+ osc.frequency.setValueAtTime(Math.max(80,f0), now);
+ const endF=kind==='button'?Math.max(60,f0*0.48):Math.max(90,f0*p.bright);
+ osc.frequency.exponentialRampToValueAtTime(endF, now+(kind==='button'?0.18:0.11));
+ gain.gain.setValueAtTime(0.0001, now);
+ gain.gain.exponentialRampToValueAtTime(kind==='success'?p.gain*1.25:p.gain, now+p.attack);
+ gain.gain.exponentialRampToValueAtTime(0.0001, now+(kind==='button'?0.22:p.decay));
+ // Soft low-pass so harsher waveforms stay pleasant
+ const filter=c.createBiquadFilter();
+ filter.type='lowpass';
+ filter.frequency.value=stage==='waterfall'?3200:stage==='crystal-lake'?4200:2800;
+ osc.connect(filter); filter.connect(gain); gain.connect(c.destination);
+ osc.start(now); osc.stop(now+(kind==='button'?0.24:p.decay+0.04));
+ if(kind==='success'){
+  for(let j=0;j<2;j++){
+   const o=c.createOscillator(), g=c.createGain(), t0=now+0.06+j*0.13;
+   o.type=p.type;
+   const ff=f0*(1.15-j*0.12);
+   o.frequency.setValueAtTime(ff, t0);
+   o.frequency.exponentialRampToValueAtTime(ff*1.25, t0+0.09);
+   g.gain.setValueAtTime(0.0001, t0);
+   g.gain.linearRampToValueAtTime(p.gain*0.7, t0+0.02);
+   g.gain.exponentialRampToValueAtTime(0.0001, t0+0.18);
+   o.connect(g).connect(c.destination);
+   o.start(t0); o.stop(t0+0.2);
+  }
+ }
+}
+let musicChord=0;
+const STAGE_MUSIC={
+ // Unique chord progressions + waveform + tempo character per stage
+ 'meadow':{
+  wave:'sine', interval:5600, gain:0.010, stagger:0.20,
+  chords:[[196.00,246.94,293.66,369.99],[164.81,196.00,246.94,329.63],[174.61,220.00,261.63,349.23],[146.83,196.00,246.94,293.66]]
+ },
+ 'field':{
+  wave:'triangle', interval:5200, gain:0.011, stagger:0.16,
+  chords:[[174.61,220.00,261.63,329.63],[146.83,196.00,246.94,293.66],[164.81,207.65,246.94,329.63],[130.81,174.61,220.00,261.63]]
+ },
+ 'moonlit-forest':{
+  wave:'sine', interval:6400, gain:0.008, stagger:0.28,
+  chords:[[146.83,174.61,220.00,261.63],[130.81,164.81,196.00,246.94],[146.83,185.00,220.00,277.18],[110.00,146.83,174.61,220.00]]
+ },
+ 'waterfall':{
+  wave:'sawtooth', interval:4800, gain:0.006, stagger:0.12,
+  chords:[[220.00,261.63,329.63,392.00],[196.00,246.94,293.66,369.99],[174.61,220.00,293.66,349.23],[246.94,311.13,369.99,440.00]]
+ },
+ 'autumn-grove':{
+  wave:'triangle', interval:5800, gain:0.010, stagger:0.22,
+  chords:[[164.81,207.65,246.94,311.13],[146.83,185.00,220.00,277.18],[155.56,196.00,233.08,293.66],[123.47,164.81,207.65,246.94]]
+ },
+ 'crystal-lake':{
+  wave:'sine', interval:5000, gain:0.009, stagger:0.14,
+  chords:[[207.65,261.63,311.13,415.30],[185.00,233.08,277.18,369.99],[196.00,246.94,293.66,392.00],[233.08,293.66,349.23,440.00]]
+ },
+ 'misty-highlands':{
+  wave:'triangle', interval:6600, gain:0.009, stagger:0.30,
+  chords:[[174.61,207.65,261.63,311.13],[155.56,196.00,233.08,311.13],[164.81,220.00,261.63,329.63],[130.81,174.61,207.65,261.63]]
+ },
+ 'sunset-valley':{
+  wave:'sine', interval:5400, gain:0.010, stagger:0.18,
+  chords:[[185.00,233.08,277.18,349.23],[164.81,207.65,246.94,329.63],[174.61,220.00,261.63,349.23],[146.83,185.00,233.08,293.66]]
+ }
+};
+function musicNote(){
+ const c=audio(); if(!c) return;
+ const now=c.currentTime;
+ const stage=document.body.dataset.stage||'meadow';
+ const theme=STAGE_MUSIC[stage]||STAGE_MUSIC.meadow;
+ const notes=theme.chords[musicChord++%theme.chords.length];
+ for(let i=0;i<notes.length;i++){
+  const o=c.createOscillator(), g=c.createGain();
+  const filter=c.createBiquadFilter();
+  filter.type='lowpass';
+  filter.frequency.value=stage==='waterfall'?2400:stage==='crystal-lake'?3600:2200;
+  o.type=theme.wave;
+  o.frequency.value=notes[i];
+  g.gain.setValueAtTime(0.0001, now);
+  g.gain.linearRampToValueAtTime(theme.gain, now+1.2);
+  g.gain.linearRampToValueAtTime(0.0001, now+5.4);
+  o.connect(filter); filter.connect(g); g.connect(c.destination);
+  o.start(now+i*theme.stagger);
+  o.stop(now+5.6);
+ }
+}
+function stopMusicForBackground(){
+ clearInterval(musicTimer); musicTimer=null;
+ if(audioCtx&&audioCtx.state==='running') audioCtx.suspend().catch(()=>{});
+}
+function resumeMusic(){
+ if(!musicOn||document.hidden) return;
+ const c=audio();
+ if(c&&c.state==='suspended') c.resume().catch(()=>{});
+ if(!musicTimer){
+  musicNote();
+  const stage=document.body.dataset.stage||'meadow';
+  const interval=(STAGE_MUSIC[stage]||STAGE_MUSIC.meadow).interval;
+  musicTimer=setInterval(musicNote, interval);
+ }
+}
+function restartMusicForStage(){
+ if(!musicOn) return;
+ clearInterval(musicTimer); musicTimer=null;
+ musicChord=0;
+ resumeMusic();
+}
+function toggleMusic(){
+ musicOn=!musicOn; saveAudioPrefs();
+ if(musicOn){ audio(); restartMusicForStage(); }
+ else stopMusicForBackground();
+}
+function toggleEffects(){ effectsOn=!effectsOn; saveAudioPrefs(); }
+
 $('playBtn').addEventListener('click',startGame);$('homeMenuBtn').addEventListener('click',openGameMenu);$('gameMenuBtn').addEventListener('click',openGameMenu);$('levelsBtn').addEventListener('click',openLevels);$('shuffle').addEventListener('click',shuffle);$('hint').addEventListener('click',openHints);$('wordListBtn').addEventListener('click',openWordList);$('extrasBtn').addEventListener('click',openExtras);$('homeHelp').addEventListener('click',()=>showModal('How to play','Swipe across the letter wheel to spell words. Tap a crossword word to select it for definition hints or a letter reveal. Solve every crossword word to finish a level. Bonus words earn coins.'));
 document.addEventListener('visibilitychange',()=>{if(document.hidden)stopMusicForBackground();else resumeMusic()});window.addEventListener('pagehide',stopMusicForBackground);window.addEventListener('pageshow',()=>{if(!document.hidden)resumeMusic()});
 document.addEventListener('click',e=>{if(e.target.closest('button')&&!e.target.closest('.letter'))playEffect('button')});

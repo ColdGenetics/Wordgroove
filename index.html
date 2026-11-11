@@ -20,7 +20,7 @@ button{font:inherit;cursor:pointer}
 .brand{display:flex;align-items:center;gap:9px;font-weight:950;letter-spacing:.8px;font-size:19px}
 .leaf{width:34px;height:34px;border-radius:12px;background:linear-gradient(145deg,#d9e9a8,#82b987);display:grid;place-items:center;color:#174333;font-size:20px;box-shadow:0 4px 12px #06171355}
 .iconbtn{border:1px solid var(--line);background:#ffffff0b;color:var(--cream);border-radius:13px;width:40px;height:40px;font-size:19px;display:grid;place-items:center}
-.coin-pill{display:flex;align-items:center;gap:6px;background:#ffffff10;border:1px solid #f3c66a55;color:var(--gold);border-radius:20px;padding:7px 11px;font-size:13px;font-weight:900}
+.coin-pill{display:flex;align-items:center;gap:6px;background:#1a2e28e6;border:2px solid #f3c66a;color:#ffe9a8;border-radius:20px;padding:7px 12px;font-size:13px;font-weight:900;text-shadow:0 1px 0 #000c,0 0 6px #0008;box-shadow:0 0 0 1px #0006,0 4px 12px #0005}.coin-pill span{color:#ffe9a8;text-shadow:0 1px 0 #000d,0 0 4px #0009;-webkit-text-stroke:0.35px #2a1a00}.coin-icon{display:inline-grid;place-items:center;width:1.15em;height:1.15em;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff3c4,#e8b84a 55%,#b8860b);color:#5a3a00;font-size:0.95em;line-height:1;box-shadow:0 0 0 1.5px #5a3a00,0 1px 2px #0008;text-shadow:none;-webkit-text-stroke:0}
 .home{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:16px;padding:6px 0}
 .hero{background:linear-gradient(145deg,#1c443a,#17352f);border:1px solid var(--line);border-radius:28px;padding:25px 20px;box-shadow:var(--shadow);text-align:center}
 .hero-kicker{color:var(--green);font-size:11px;font-weight:900;letter-spacing:2px;text-transform:uppercase}
@@ -28,7 +28,7 @@ button{font:inherit;cursor:pointer}
 .hero p{color:var(--muted);font-size:14px;margin:0;line-height:1.45}
 .home-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
 .stat-card{background:#ffffff0c;border:1px solid var(--line);border-radius:18px;padding:14px;text-align:center}
-.stat-card strong{display:block;color:var(--gold);font-size:25px;line-height:1.1}
+.stat-card strong{display:block;color:#ffe9a8;font-size:25px;line-height:1.1;text-shadow:0 1px 0 #000c,0 0 8px #0007;-webkit-text-stroke:0.3px #2a1a00}
 .stat-card span{display:block;color:var(--muted);font-size:11px;margin-top:5px;letter-spacing:.7px;text-transform:uppercase}
 .primary{background:linear-gradient(135deg,#f5d58b,#dcae58);color:#263d31;border:0;box-shadow:0 4px 0 #a77c3f}
 .action{border:1px solid var(--line);background:#ffffff0b;color:var(--cream);border-radius:15px;padding:12px 10px;font-size:13px;font-weight:850;min-height:44px}
@@ -255,6 +255,31 @@ body.in-game .top{display:none}
 .level-row-meta{flex:1;color:#e1e9d6;font-size:12px}
 .level-row-tag{font-size:10px;font-weight:850;letter-spacing:.4px;text-transform:uppercase;color:var(--gold);background:#f3c66a22;border:1px solid #f3c66a55;border-radius:999px;padding:3px 8px}
 
+
+/* Coin readability on every stage background */
+.coin-pill{
+  background:#1a2e28f2 !important;
+  border:2px solid #f3c66a !important;
+  color:#ffe9a8 !important;
+  text-shadow:0 1px 0 #000c,0 0 6px #0008 !important;
+  box-shadow:0 0 0 1px #0007,0 4px 12px #0006 !important;
+  backdrop-filter:none !important;
+  -webkit-backdrop-filter:none !important;
+}
+.coin-pill span{
+  color:#ffe9a8 !important;
+  text-shadow:0 1px 0 #000d,0 0 4px #0009 !important;
+}
+.coin-pill .coin-icon{
+  color:#5a3a00 !important;
+  text-shadow:none !important;
+  -webkit-text-stroke:0 !important;
+}
+#homeCoins{
+  color:#ffe9a8 !important;
+  text-shadow:0 1px 0 #000c,0 0 8px #0007 !important;
+}
+
 </style>
 </head>
 <body>
@@ -267,7 +292,7 @@ body.in-game .top{display:none}
       <h1>Wordgrove</h1>
       <p>Swipe letters, discover words, and watch your vocabulary grow.</p>
     </div>
-    <div class="app-version" id="homeVersion">Wordgrove v3.5.12</div>
+    <div class="app-version" id="homeVersion">Wordgrove v3.5.13</div>
     <div class="home-stats">
       <div class="stat-card"><strong id="homeLevel">1</strong><span>Current level</span></div>
       <div class="stat-card"><strong id="homeCoins">50</strong><span>Coins</span></div>
@@ -282,7 +307,7 @@ body.in-game .top{display:none}
     <div class="game-head">
       <button class="iconbtn" id="gameMenuBtn" aria-label="Game menu">☰</button>
       <div class="level-info"><span class="levelname" id="levelname">Meadow · 1</span><span class="level-sub" id="levelsub">Find all the words</span></div>
-      <div class="coin-pill"><span>●</span><span id="gameCoins">50</span></div>
+      <div class="coin-pill"><span class="coin-icon" aria-hidden="true">●</span><span id="gameCoins">50</span></div>
     </div>
     <section class="board crossword" id="board" aria-label="Crossword puzzle"></section>
     <div class="selected-clue" id="selectedClue" aria-hidden="true"></div>
