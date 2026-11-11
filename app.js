@@ -1,4 +1,4 @@
-const APP_VERSION = '3.5.19';
+const APP_VERSION = '3.5.20';
 const $ = id => document.getElementById(id);
 const SAVE_KEY = 'wordgrove-v4-save';
 const LETTER_HINT_COST = 25, DEFINITION_HINT_COST = 15, DOUBLE_HINT_COST = 40;
@@ -855,8 +855,8 @@ function showModal(title,body){
  $('closemodal').onclick=()=>$('overlay').classList.remove('show');
 }
 function handleDown(e){const b=e.target.closest('.letter');if(!b||pointerActive)return;e.preventDefault();pointerActive=true;pointerId=e.pointerId;dragged=false;startPoint={x:e.clientX,y:e.clientY};try{$('wheel').setPointerCapture(e.pointerId)}catch{}selectLetter(+b.dataset.index)}
-function handleMove(e){if(!pointerActive||e.pointerId!==pointerId)return;const dx=e.clientX-startPoint.x,dy=e.clientY-startPoint.y;if(Math.hypot(dx,dy)>8)dragged=true;try{FX.swirl(e.movementX||dx*0.05,e.movementY||dy*0.05)}catch(err){}const t=document.elementFromPoint(e.clientX,e.clientY),b=t?.closest?.('.letter');if(b&&$('wheel').contains(b))selectLetter(+b.dataset.index)}
-function handleUp(e){if(!pointerActive||e.pointerId!==pointerId)return;const shouldSubmit=e.type==='pointerup'&&picked.length>=2;pointerActive=false;pointerId=null;startPoint=null;if(shouldSubmit)submit();else clearSelection()}
+function handleMove(e){if(!pointerActive||e.pointerId!==pointerId)return;const dx=e.clientX-startPoint.x,dy=e.clientY-startPoint.y;if(Math.hypot(dx,dy)>8)dragged=true;try{FX.swirlFromEvent(e)}catch(err){}const t=document.elementFromPoint(e.clientX,e.clientY),b=t?.closest?.('.letter');if(b&&$('wheel').contains(b))selectLetter(+b.dataset.index)}
+function handleUp(e){if(!pointerActive||e.pointerId!==pointerId)return;try{FX.lastPX=null;FX.lastPY=null}catch(err){};const shouldSubmit=e.type==='pointerup'&&picked.length>=2;pointerActive=false;pointerId=null;startPoint=null;if(shouldSubmit)submit();else clearSelection()}
 
 const STAGES=[['Meadow','meadow'],['Field','field'],['Moonlit Mountain Forest','moonlit-forest'],['Waterfall','waterfall'],['Autumn Grove','autumn-grove'],['Crystal Lake','crystal-lake'],['Misty Highlands','misty-highlands'],['Sunset Valley','sunset-valley']];
 function stageForLevel(n){
@@ -1399,12 +1399,12 @@ $('wheel').addEventListener('pointerdown',handleDown);document.addEventListener(
 // ---- Lightweight stage particle FX (canvas 2d, capped count) ----
 const FX = {
   particles: [],
-  max: 48,
+  max: 36,
   last: 0,
   stage: 'meadow',
   reduced: false,
-  wheelCX: 0,
-  wheelCY: 0,
+  lastPX: null,
+  lastPY: null,
   init(){
     this.canvas = $('fxCanvas');
     if(!this.canvas) return;
@@ -1413,9 +1413,11 @@ const FX = {
     this.resize();
     window.addEventListener('resize', ()=>this.resize(), { passive:true });
     document.addEventListener('pointerdown', (e)=>{
-      if(e.target.closest('button, .letter, .cross-cell, .modal, .action, input, .word-list')) return;
-      this.impulse(e.clientX, e.clientY, 1.4);
+      if(e.target.closest('button, .letter, .cross-cell, .modal, .action, input, .word-list, .stage-card, .level-row')) return;
+      this.impulse(e.clientX, e.clientY, 1.6);
     }, { passive:true });
+    const bg = $('bgMotion');
+    if(bg && !this.reduced) bg.classList.add('animate');
     requestAnimationFrame((t)=>this.frame(t));
   },
   resize(){
@@ -1429,90 +1431,66 @@ const FX = {
     this.dpr = dpr;
     this.w = w; this.h = h;
   },
-  /** Point CSS + JS at the correct photo (handles base path on GitHub Pages). */
   applyBackground(key){
     const el = $('bgMotion');
     if(!el) return;
     const k = key || 'meadow';
-    // Flat filenames so GitHub web UI upload works (no folders required):
-    // bg-meadow.jpg, bg-field.jpg, ...
-    const candidates = [
-      'bg-' + k + '.jpg',
-      'bg/' + k + '.jpg',
-      './bg-' + k + '.jpg'
-    ];
+    const candidates = ['bg-'+k+'.jpg', './bg-'+k+'.jpg', 'bg/'+k+'.jpg'];
     const tryNext = (i)=>{
-      if(i>=candidates.length){
-        console.warn('Wordgrove: no background found for', k, candidates);
-        return;
-      }
+      if(i>=candidates.length){ console.warn('Wordgrove: background missing for', k); return; }
       const src = candidates[i];
       const img = new Image();
-      img.onload = ()=>{ el.style.backgroundImage = 'url("' + src + '")'; };
-      img.onerror = ()=> tryNext(i+1);
+      img.onload = ()=>{ el.style.backgroundImage = 'url("'+src+'")'; };
+      img.onerror = ()=>tryNext(i+1);
       img.src = src;
     };
     tryNext(0);
+    if(!this.reduced) el.classList.add('animate');
   },
   setStage(key){
     this.stage = key || 'meadow';
     this.applyBackground(this.stage);
     this.particles = [];
     if(this.reduced) return;
-    const n = this.stage==='autumn-grove' ? 40 : this.stage==='waterfall' ? 32 : 28;
+    const n = this.stage==='autumn-grove' ? 34 : 28;
     for(let i=0;i<n;i++) this.particles.push(this.spawn(true));
   },
   spawn(randomY){
     const s = this.stage;
-    const w = this.w || 300, h = this.h || 500;
+    const w = this.w || 360, h = this.h || 640;
     const p = {
-      x: Math.random() * w,
-      y: randomY ? Math.random() * h : -16,
-      vx: (Math.random()-0.5)*0.3,
-      vy: 0.15 + Math.random()*0.35,
-      r: 2 + Math.random()*3,
-      a: 0.55 + Math.random()*0.35,
+      x: Math.random()*w,
+      y: randomY ? Math.random()*h : -20,
+      vx: (Math.random()-0.5)*0.25,
+      vy: 0.2 + Math.random()*0.35,
+      r: 2.5 + Math.random()*2.5,
+      a: 0.65,
       rot: Math.random()*Math.PI*2,
-      vr: (Math.random()-0.5)*0.06,
+      vr: (Math.random()-0.5)*0.05,
       kind: 'dot',
-      color: '#fff4c2'
+      color: '#e8d48a'
     };
     if(s==='autumn-grove'){
-      p.kind = 'leaf';
-      p.r = 4 + Math.random()*5;
-      p.vy = 0.4 + Math.random()*0.7;
-      const hues = ['#c45c26','#d4762c','#b33b1a','#e8a04a','#8b3a1a'];
-      p.color = hues[(Math.random()*hues.length)|0];
+      p.kind='leaf'; p.r=5+Math.random()*5; p.vy=0.45+Math.random()*0.7;
+      p.color=['#c45c26','#d4762c','#b33b1a','#e8a04a','#a34018'][(Math.random()*5)|0];
     } else if(s==='meadow' || s==='field'){
-      p.kind = 'pollen';
-      p.color = Math.random()>0.5 ? '#f5e6a3' : '#dff0a8';
-      p.r = 1.5 + Math.random()*2;
-      p.vy = 0.05 + Math.random()*0.15;
+      p.kind='pollen'; p.r=2+Math.random()*2.2; p.vy=0.08+Math.random()*0.18;
+      p.color=Math.random()>0.5 ? '#f0e090' : '#cfe88a';
     } else if(s==='waterfall'){
-      p.kind = 'mist';
-      p.color = 'rgba(200,230,255,0.85)';
-      p.r = 1.5 + Math.random()*2.5;
-      p.vy = 0.5 + Math.random()*0.8;
+      p.kind='mist'; p.r=2+Math.random()*2.5; p.vy=0.55+Math.random()*0.85;
+      p.color='#b8dcf5'; p.a=0.55;
     } else if(s==='crystal-lake'){
-      p.kind = 'spark';
-      p.color = 'rgba(180,220,255,0.9)';
-      p.r = 1.2 + Math.random()*2;
-      p.vy = 0.08 + Math.random()*0.2;
+      p.kind='spark'; p.r=1.8+Math.random()*2; p.vy=0.1+Math.random()*0.2;
+      p.color='#9fd0ff';
     } else if(s==='moonlit-forest'){
-      p.kind = 'mote';
-      p.color = 'rgba(160,200,255,0.75)';
-      p.r = 1.2 + Math.random()*2;
-      p.vy = 0.04 + Math.random()*0.12;
+      p.kind='mote'; p.r=1.8+Math.random()*2.2; p.vy=0.05+Math.random()*0.12;
+      p.color='#a8c8ff';
     } else if(s==='misty-highlands'){
-      p.kind = 'fog';
-      p.color = 'rgba(220,230,225,0.35)';
-      p.r = 10 + Math.random()*20;
-      p.vy = 0.03 + Math.random()*0.08;
+      p.kind='fog'; p.r=12+Math.random()*18; p.vy=0.04+Math.random()*0.08;
+      p.color='#d8e0dc'; p.a=0.28;
     } else {
-      p.kind = 'ember';
-      p.color = Math.random()>0.5 ? '#ffb060' : '#ffd090';
-      p.r = 1.5 + Math.random()*2.5;
-      p.vy = 0.05 + Math.random()*0.15;
+      p.kind='ember'; p.r=2+Math.random()*2.5; p.vy=0.06+Math.random()*0.14;
+      p.color=Math.random()>0.5 ? '#ffb060' : '#ffd078';
     }
     return p;
   },
@@ -1521,96 +1499,110 @@ const FX = {
     for(const p of this.particles){
       const dx=p.x-x, dy=p.y-y;
       const d2=dx*dx+dy*dy;
-      if(d2<22000){
-        const d=Math.sqrt(d2)+0.01;
-        p.vx += (dx/d)*strength*1.1;
-        p.vy += (dy/d)*strength*0.7;
-      }
+      if(d2>24000) continue;
+      const d=Math.sqrt(d2)+0.01;
+      p.vx += (dx/d)*strength*1.2;
+      p.vy += (dy/d)*strength*0.75;
     }
   },
-  /** Wind from letter-wheel region — stronger near the wheel, not a global pan */
-  swirl(dx, dy){
-    // Local gust near the letter wheel — not a global pan of every particle
+  swirlFromEvent(e){
+    if(this.reduced) return;
     const wheel = $('wheel');
-    let cx = this.w * 0.5, cy = this.h * 0.72;
-    if(wheel){
-      const r = wheel.getBoundingClientRect();
-      cx = r.left + r.width/2;
-      cy = r.top + r.height/2;
+    if(!wheel) return;
+    const r = wheel.getBoundingClientRect();
+    const cx = r.left + r.width/2;
+    const cy = r.top + r.height/2;
+    if(Math.hypot(e.clientX-cx, e.clientY-cy) > Math.max(r.width, r.height)*0.95) {
+      this.lastPX = e.clientX; this.lastPY = e.clientY;
+      return;
     }
-    const force = Math.min(2.5, Math.hypot(dx, dy) * 0.08);
-    if(force < 0.02) return;
-    const ang = Math.atan2(dy, dx);
+    let mdx = e.movementX, mdy = e.movementY;
+    if(mdx==null || ((mdx===0 && mdy===0) && this.lastPX!=null)){
+      mdx = e.clientX - (this.lastPX||e.clientX);
+      mdy = e.clientY - (this.lastPY||e.clientY);
+    }
+    this.lastPX = e.clientX; this.lastPY = e.clientY;
+    if(!mdx && !mdy) return;
+    const force = Math.min(1.8, Math.hypot(mdx, mdy) * 0.045);
+    if(force < 0.03) return;
+    const ang = Math.atan2(mdy, mdx);
     for(const p of this.particles){
-      const ddx = p.x - cx, ddy = p.y - cy;
-      const dist = Math.sqrt(ddx*ddx + ddy*ddy) + 1;
-      if(dist > 220) continue;
-      const falloff = 1 - dist/220;
+      const dist = Math.hypot(p.x-cx, p.y-cy);
+      if(dist > 200) continue;
+      const falloff = (1 - dist/200);
       p.vx += Math.cos(ang) * force * falloff;
-      p.vy += Math.sin(ang) * force * falloff * 0.7;
+      p.vy += Math.sin(ang) * force * falloff * 0.65;
     }
   },
   burst(kind='solve'){
     if(this.reduced) return;
     const board = $('board');
-    let cx = this.w * 0.5, cy = this.h * 0.35;
+    let cx = this.w*0.5, cy = this.h*0.35;
     if(board){
       const r = board.getBoundingClientRect();
       cx = r.left + r.width/2;
       cy = r.top + r.height/2;
     }
-    const extra = kind==='level' ? 22 : 14;
+    const extra = kind==='level' ? 20 : 12;
     for(let i=0;i<extra;i++){
       const p = this.spawn(false);
-      p.x = cx + (Math.random()-0.5)*100;
-      p.y = cy + (Math.random()-0.5)*60;
-      p.vx = (Math.random()-0.5)*4;
-      p.vy = -1 - Math.random()*3;
+      p.x = cx + (Math.random()-0.5)*90;
+      p.y = cy + (Math.random()-0.5)*50;
+      p.vx = (Math.random()-0.5)*3.5;
+      p.vy = -1.2 - Math.random()*2.8;
       p.a = 0.9;
-      p.r = (p.r||2) * 1.4;
+      p.r *= 1.35;
       this.particles.push(p);
     }
-    if(this.particles.length > this.max + 30) this.particles.splice(0, this.particles.length - (this.max + 30));
+    while(this.particles.length > this.max+24) this.particles.shift();
   },
   frame(t){
     requestAnimationFrame((nt)=>this.frame(nt));
     if(!this.ctx || this.reduced) return;
-    const dt = Math.min(40, t - (this.last||t));
+    if(!this.w) this.resize();
+    const dt = Math.min(40, t - (this.last||t)) || 16;
     this.last = t;
-    const ctx=this.ctx, dpr=this.dpr||1;
-    ctx.clearRect(0,0,this.canvas.width,this.canvas.height);
+    const ctx = this.ctx, dpr = this.dpr || 1;
+    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     ctx.save();
-    ctx.scale(dpr,dpr);
-    for(let i=this.particles.length-1;i>=0;i--){
-      const p=this.particles[i];
+    ctx.scale(dpr, dpr);
+    if(this.particles.length < this.max-4){
+      this.particles.push(this.spawn(false));
+    }
+    for(let i=this.particles.length-1; i>=0; i--){
+      const p = this.particles[i];
       p.x += p.vx * (dt/16);
       p.y += p.vy * (dt/16);
       p.rot += p.vr;
-      p.vx *= 0.985; p.vy *= 0.992;
-      if(p.y>this.h+24 || p.x<-40 || p.x>this.w+40){
-        this.particles[i]=this.spawn(false);
+      p.vx *= 0.98;
+      p.vy *= 0.995;
+      let dead = (p.y > this.h + 30) || (p.y < -40) || (p.x < -50) || (p.x > this.w + 50);
+      if(dead){
+        this.particles[i] = this.spawn(false);
+        const q = this.particles[i];
+        if(Math.random()<0.7){ q.y = -15; q.x = Math.random()*this.w; }
+        else { q.x = Math.random()<0.5 ? -15 : this.w+15; q.y = Math.random()*this.h*0.7; }
         continue;
       }
-      ctx.globalAlpha = Math.max(0.05, Math.min(1, p.a));
-      ctx.fillStyle = p.color;
+      ctx.globalAlpha = Math.max(0.12, Math.min(1, p.a));
+      ctx.fillStyle = p.color || '#e8d48a';
       if(p.kind==='leaf'){
         ctx.save();
-        ctx.translate(p.x,p.y);
+        ctx.translate(p.x, p.y);
         ctx.rotate(p.rot);
         ctx.beginPath();
-        ctx.ellipse(0,0, p.r*1.4, p.r*0.6, 0, 0, Math.PI*2);
+        ctx.ellipse(0, 0, p.r*1.5, p.r*0.65, 0, 0, Math.PI*2);
         ctx.fill();
         ctx.restore();
       } else {
         ctx.beginPath();
-        ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
         ctx.fill();
       }
     }
     ctx.restore();
   }
 };
-
 
 async function boot(){try{const [lr,dr,df]=await Promise.all([fetch('./levels.json'),fetch('./dictionary.json'),fetch('./definitions.json').catch(()=>null)]);if(!lr.ok||!dr.ok)throw Error('Puzzle files unavailable');levels=await lr.json();dictionary=new Set(await dr.json());if(df?.ok)definitions=await df.json();try{definitions={...definitions,...JSON.parse(localStorage.getItem('wordgrove-definitions')||'{}')}}catch{}state.currentLevel=Math.min(state.currentLevel,levels.length-1);state.unlockedLevel=Math.min(state.unlockedLevel,levels.length-1);updateHome();showHome();try{FX.init();FX.setStage(document.body.dataset.stage||'meadow')}catch(e){};const hv=$('homeVersion');if(hv)hv.textContent=`Wordgrove v${APP_VERSION}`;
  document.title=`Wordgrove v${APP_VERSION}`;

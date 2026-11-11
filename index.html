@@ -237,13 +237,111 @@ body.stage-crystal-lake #bgMotion{background-image:url('bg-crystal-lake.jpg')}
 body.stage-misty-highlands #bgMotion{background-image:url('bg-misty-highlands.jpg')}
 body.stage-sunset-valley #bgMotion{background-image:url('bg-sunset-valley.jpg')}
 @keyframes bgDrift {
-  0%   { transform:scale(1.06) translate3d(0,0,0); }
-  50%  { transform:scale(1.10) translate3d(-1%, -0.5%, 0); }
-  100% { transform:scale(1.06) translate3d(0,0,0); }
+  0%   { transform:scale(1.08) translate3d(0,0,0); }
+  33%  { transform:scale(1.14) translate3d(-1.8%, -0.8%, 0); }
+  66%  { transform:scale(1.11) translate3d(1.2%, 0.5%, 0); }
+  100% { transform:scale(1.08) translate3d(0,0,0); }
 }
-#bgMotion.animate{ animation:bgDrift 28s ease-in-out infinite; }
+#bgMotion.animate{ animation:bgDrift 22s ease-in-out infinite; }
+#bgMotion{
+  /* ensure animation not overridden */
+  transform-origin:center center;
+}
 @media (prefers-reduced-motion: reduce){
   #bgMotion.animate{ animation:none; }
+}
+
+
+/* Stage / level picker (must not collapse to plain text) */
+.stage-grid{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:8px;
+  max-height:min(52vh,420px);
+  overflow:auto;
+  margin:8px 0 4px;
+  padding:2px;
+  text-align:left;
+}
+.stage-card{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:4px;
+  width:100%;
+  box-sizing:border-box;
+  text-align:left;
+  border:1px solid #ffffff30;
+  background:#ffffff14;
+  color:var(--cream);
+  border-radius:14px;
+  padding:12px 14px;
+  font:inherit;
+  cursor:pointer;
+}
+.stage-card strong{
+  color:#fff0c6;
+  font-size:15px;
+  font-weight:900;
+}
+.stage-card span{
+  color:#d5e2d0;
+  font-size:12px;
+  line-height:1.35;
+}
+.stage-card:disabled{
+  opacity:.45;
+  cursor:not-allowed;
+}
+.stage-card:not(:disabled):active{
+  transform:scale(0.98);
+}
+.level-list{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  max-height:min(48vh,380px);
+  overflow:auto;
+  margin:0 0 10px;
+  padding-right:2px;
+  width:100%;
+  box-sizing:border-box;
+}
+.level-row{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  width:100%;
+  box-sizing:border-box;
+  text-align:left;
+  border:1px solid #ffffff30;
+  background:#ffffff12;
+  color:var(--cream);
+  border-radius:12px;
+  padding:10px 11px;
+  font-size:13px;
+  font:inherit;
+  cursor:pointer;
+}
+.menu-options{
+  display:grid;
+  gap:8px;
+  width:100%;
+}
+.menu-options .action{
+  text-align:left;
+  width:100%;
+  box-sizing:border-box;
+}
+.modal{
+  max-height:min(86vh,720px);
+  overflow:auto;
+  box-sizing:border-box;
+}
+.modal-body{
+  width:100%;
+  box-sizing:border-box;
+  overflow-x:hidden;
 }
 
 </style>
@@ -261,7 +359,7 @@ body.stage-sunset-valley #bgMotion{background-image:url('bg-sunset-valley.jpg')}
       <h1>Wordgrove</h1>
       <p>Swipe letters, discover words, and watch your vocabulary grow.</p>
     </div>
-    <div class="app-version" id="homeVersion">Wordgrove v3.5.19</div>
+    <div class="app-version" id="homeVersion">Wordgrove v3.5.20</div>
     <div class="home-stats">
       <div class="stat-card"><strong id="homeLevel">1</strong><span>Current level</span></div>
       <div class="stat-card"><strong id="homeCoins">50</strong><span>Coins</span></div>
