@@ -1,4 +1,4 @@
-const APP_VERSION = '3.5.21';
+const APP_VERSION = '3.5.25';
 const $ = id => document.getElementById(id);
 const SAVE_KEY = 'wordgrove-v4-save';
 const LETTER_HINT_COST = 25, DEFINITION_HINT_COST = 15, DOUBLE_HINT_COST = 40;
@@ -185,9 +185,7 @@ function renderGame(){
  const data=levels[level]; if(!data)return;
  completionShown=false; revealMode=false; rack=data.letters.slice(); picked=[]; solved=new Set(state.solvedByLevel[level]||[]); revealed=state.revealedByLevel[level]||{}; extras=new Set(state.extrasByLevel[level]||[]); selectedWord=null; hintDefs=(state.hintDefsByLevel&&state.hintDefsByLevel[level])?{...state.hintDefsByLevel[level]}:{};
  const stage=stageForLevel(level);
- const themeName=data.theme||'';
- $('levelname').textContent=themeName?`${stage.name} · ${level+1}`:`${stage.name} · ${level+1}`;
- if(themeName){ setTimeout(()=>{ if(!$('gameScreen').hidden) say(`Theme: ${themeName}`); }, 350); }
+ $('levelname').textContent=`${stage.name} · ${level+1}`;
  document.body.dataset.stage=stage.key;
  document.body.className=`stage-${stage.key} in-game`;
  try{ FX.setStage(stage.key); }catch(e){}
