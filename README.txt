@@ -1,30 +1,23 @@
-Wordgrove 3.5.14
+Wordgrove 3.5.26
 ================
 
-3.5.14
-- Level Words list is level-scoped.
-- Home Words found shows level for each word.
-- Features & fixes list in settings/menu.
-- Network-first SW: latest build on reopen, progress kept.
-AI-created word puzzle game.
 Live: https://coldgenetics.github.io/Wordgrove/
 
-3.5.13
-- Docs updated (README version + changelog).
-- Coin icon/number outlined for visibility on all stage backgrounds.
-- Settings labels: Music / Sounds (defaults On; prefs saved).
-- Unique music + sound effects per stage.
+3.5.26
+- Wheel highlight matches the letter under your finger.
+- Swipe path between letters restored.
+- Crossword board & level-complete panel translucent again.
+- Haptic on solve where the OS/browser supports it (often Android; often not iPhone).
+- Features & fixes list: latest 4 versions only.
 
-3.5.12
-- Level select no longer jumps to the wrong level; stage opens level summary.
-- Testing tools via ?dev=1 (auto-solve, unlock, jump, reset).
+3.5.25
+- Max 2 uses of any crossword word per stage (25 levels).
+- Based on the 3.5.20 level pack.
 
-3.5.11
-- Reject acronym/abbrev/place/surname/slang bonus words.
-- Bonus coins: 0 for 2–3 letters, then length-3.
-- Larger non-overlapping wheel tiles.
+3.5.24
+- Restored 3.5.20 levels as baseline; themes removed.
 
-3.5.10
-- Definition hint fix.
+3.5.23
+- Crossword / early-level experiments (superseded by 3.5.24 baseline).
 
-See README.md for full notes and project layout.
+See README.md for fuller project notes.

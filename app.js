@@ -1,4 +1,4 @@
-const APP_VERSION = '3.5.25';
+const APP_VERSION = '3.5.26';
 const $ = id => document.getElementById(id);
 const SAVE_KEY = 'wordgrove-v4-save';
 const LETTER_HINT_COST = 25, DEFINITION_HINT_COST = 15, DOUBLE_HINT_COST = 40;
@@ -145,7 +145,16 @@ function loadState(){try{const p=JSON.parse(localStorage.getItem(SAVE_KEY)||'nul
 function saveState(){try{localStorage.setItem(SAVE_KEY,JSON.stringify(state))}catch{}}
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function say(msg){$('toast').textContent=msg;$('toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('show'),1700)}
-function haptic(kind='light'){try{if(navigator.vibrate){if(kind==='solve')navigator.vibrate([12,30,12]);else if(kind==='level')navigator.vibrate([18,40,18,40,24]);else navigator.vibrate(10)}}catch{}}
+function haptic(kind='light'){
+ try{
+  const vib = navigator && navigator.vibrate ? navigator.vibrate.bind(navigator) : null;
+  if(!vib) return false;
+  if(kind==='solve') return vib([20, 30, 20]);
+  if(kind==='level') return vib([25, 40, 25, 40, 35]);
+  if(kind==='prime') return vib(1); // unlock vibrate on some Android builds
+  return vib(15);
+ }catch(e){ return false; }
+}
 function currentWord(){return picked.map(i=>rack[i]).join('')}
 function levelNo(){return Math.min(Math.max(state.currentLevel,state.unlockedLevel),levels.length-1)+1}
 function updateCoins(){$('homeCoins').textContent=state.coins;$('gameCoins').textContent=state.coins}
@@ -348,6 +357,32 @@ function updateSelectedWord(){
   clue.textContent=`Selected word · ${w.length} letters`;
  }
 }
+function wheelCenter(){
+ const wheel=$('wheel');
+ if(!wheel) return null;
+ const rect=wheel.getBoundingClientRect();
+ return { wheel, rect, cx: rect.left + rect.width/2, cy: rect.top + rect.height/2 };
+}
+/** Map pointer to nearest letter index using angle (avoids off-by-one from elementFromPoint). */
+function letterIndexAtClient(clientX, clientY){
+ const n=rack.length;
+ if(n<1) return null;
+ const c=wheelCenter();
+ if(!c) return null;
+ const dx=clientX - c.cx, dy=clientY - c.cy;
+ const dist=Math.hypot(dx,dy);
+ const maxR=Math.min(c.rect.width,c.rect.height)*0.58;
+ // Allow near-center presses so short swipes still register
+ if(dist>maxR) return null;
+ // Same convention as drawWheel: angle = -PI/2 + i*2PI/n (i=0 at top, increases clockwise on screen)
+ const ang=Math.atan2(dy, dx);
+ const a0=-Math.PI/2;
+ let t=((ang - a0) % (2*Math.PI) + 2*Math.PI) % (2*Math.PI);
+ const step=2*Math.PI/n;
+ let i=Math.floor((t + step/2) / step) % n;
+ if(i<0) i+=n;
+ return i;
+}
 function drawWheel(){
  const wheel=$('wheel');
  if(!wheel) return;
@@ -357,27 +392,27 @@ function drawWheel(){
   return;
  }
  wheel.replaceChildren();
- // Path layer for swipe trail
+ // Path layer — pixel space (SVG path data does not support %)
  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
  svg.setAttribute('class','wheel-path');
- svg.setAttribute('width','100%');
- svg.setAttribute('height','100%');
- svg.style.cssText='position:absolute;inset:0;pointer-events:none;overflow:visible;z-index:1';
+ svg.setAttribute('width', String(Math.round(rect.width)));
+ svg.setAttribute('height', String(Math.round(rect.height)));
+ svg.setAttribute('viewBox', `0 0 ${Math.round(rect.width)} ${Math.round(rect.height)}`);
+ svg.style.cssText='position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:1';
  const path=document.createElementNS('http://www.w3.org/2000/svg','path');
  path.setAttribute('id','wheelPathLine');
  path.setAttribute('fill','none');
  path.setAttribute('stroke','#f3c66a');
- path.setAttribute('stroke-width','3.5');
+ path.setAttribute('stroke-width','4');
  path.setAttribute('stroke-linecap','round');
  path.setAttribute('stroke-linejoin','round');
- path.setAttribute('opacity','0.9');
+ path.setAttribute('opacity','0.95');
+ path.setAttribute('d','');
  svg.appendChild(path);
  wheel.appendChild(svg);
 
  const n=rack.length;
  if(!n) return;
- // Radius leaves a margin so larger tiles never overlap
- const gapFactor = n<=4?0.72:n===5?0.64:n===6?0.58:0.52;
  const tilePx = Math.max(36, Math.min(rect.width,rect.height) * (n<=4?0.28:n===5?0.24:n===6?0.21:0.18));
  const radius = Math.min(rect.width,rect.height)/2 - tilePx/2 - 4;
  for(let i=0;i<n;i++){
@@ -386,19 +421,24 @@ function drawWheel(){
   b.className='letter' + (picked.includes(i) ? ' selected' : '');
   b.textContent=rack[i].toUpperCase();
   const angle=-Math.PI/2 + i*2*Math.PI/n;
-  const cx = 50 + Math.cos(angle)*radius/rect.width*100;
-  const cy = 50 + Math.sin(angle)*radius/rect.height*100;
-  b.style.left=`${cx}%`;
-  b.style.top=`${cy}%`;
+  // percent for CSS centering via translate(-50%,-50%)
+  const cxPct = 50 + Math.cos(angle)*radius/rect.width*100;
+  const cyPct = 50 + Math.sin(angle)*radius/rect.height*100;
+  // pixel center for path drawing
+  const cxPx = rect.width/2 + Math.cos(angle)*radius;
+  const cyPx = rect.height/2 + Math.sin(angle)*radius;
+  b.style.left=`${cxPct}%`;
+  b.style.top=`${cyPct}%`;
   b.style.width=`${tilePx}px`;
   b.style.height=`${tilePx}px`;
   b.style.fontSize=`${Math.round(tilePx*0.42)}px`;
   b.dataset.index=i;
-  b.dataset.cx=String(cx);
-  b.dataset.cy=String(cy);
+  b.dataset.px=String(cxPx);
+  b.dataset.py=String(cyPx);
   b.style.visibility='visible';
   b.style.opacity='1';
   b.style.zIndex='2';
+  b.style.pointerEvents='none'; // selection is angle-based while dragging
   wheel.append(b);
  }
  updateWheelPath();
@@ -412,17 +452,25 @@ function updateWheelPath(){
  for(const i of picked){
   const b=[...wheel.querySelectorAll('.letter')].find(el=>+el.dataset.index===i);
   if(!b) continue;
-  const x=parseFloat(b.dataset.cx);
-  const y=parseFloat(b.dataset.cy);
+  const x=parseFloat(b.dataset.px);
+  const y=parseFloat(b.dataset.py);
   if(Number.isFinite(x)&&Number.isFinite(y)) pts.push([x,y]);
  }
  if(!pts.length){ path.setAttribute('d',''); return; }
- let d=`M ${pts[0][0]}% ${pts[0][1]}%`;
- for(let i=1;i<pts.length;i++) d+=` L ${pts[i][0]}% ${pts[i][1]}%`;
+ let d=`M ${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
+ for(let i=1;i<pts.length;i++) d+=` L ${pts[i][0].toFixed(1)} ${pts[i][1].toFixed(1)}`;
  path.setAttribute('d', d);
 }
-function selectLetter(i){if(!Number.isInteger(i)||picked.includes(i))return;picked.push(i);playEffect('letter');updateCurrent();try{updateWheelPath()}catch(e){}}
-function updateCurrent(){$('current').textContent=currentWord().toUpperCase();[...$('wheel').children].forEach((b,i)=>b.classList.toggle('selected',picked.includes(i)))}
+function selectLetter(i){if(!Number.isInteger(i)||picked.includes(i))return;picked.push(i);playEffect('letter');updateCurrent();requestAnimationFrame(()=>{try{updateWheelPath()}catch(e){}})}
+function updateCurrent(){
+ $('current').textContent=currentWord().toUpperCase();
+ const wheel=$('wheel');
+ if(!wheel) return;
+ wheel.querySelectorAll('.letter').forEach(b=>{
+  const i=+b.dataset.index;
+  b.classList.toggle('selected', picked.includes(i));
+ });
+}
 function clearSelection(){picked=[];updateCurrent();try{updateWheelPath()}catch(e){}}
 function coinRewardForExtra(word){const len=String(word).length;return len<=3?0:len-3}
 function canMakeFromRack(word){const available={};for(const c of rack)available[c]=(available[c]||0)+1;for(const c of word){if(!available[c])return false;available[c]--}return true}
@@ -469,6 +517,7 @@ async function submit(){
   if(!canMakeFromRack(w)){ say('Those letters are not available'); return; }
   if(levels[level].words.includes(w)){
    if(solved.has(w)){ say('Already found'); return; }
+   try{ haptic('solve'); }catch(e){}
    solveWord(w,true);
    return;
   }
@@ -932,9 +981,39 @@ function showModal(title,body){
  $('overlay').classList.add('show');
  $('closemodal').onclick=()=>$('overlay').classList.remove('show');
 }
-function handleDown(e){const b=e.target.closest('.letter');if(!b||pointerActive)return;e.preventDefault();pointerActive=true;pointerId=e.pointerId;dragged=false;startPoint={x:e.clientX,y:e.clientY};try{$('wheel').setPointerCapture(e.pointerId)}catch{}selectLetter(+b.dataset.index)}
-function handleMove(e){if(!pointerActive||e.pointerId!==pointerId)return;const dx=e.clientX-startPoint.x,dy=e.clientY-startPoint.y;if(Math.hypot(dx,dy)>8)dragged=true;try{FX.swirlFromEvent(e)}catch(err){}const t=document.elementFromPoint(e.clientX,e.clientY),b=t?.closest?.('.letter');if(b&&$('wheel').contains(b))selectLetter(+b.dataset.index)}
-function handleUp(e){if(!pointerActive||e.pointerId!==pointerId)return;try{FX.lastPX=null;FX.lastPY=null}catch(err){};const shouldSubmit=e.type==='pointerup'&&picked.length>=2;pointerActive=false;pointerId=null;startPoint=null;if(shouldSubmit)submit();else clearSelection()}
+function handleDown(e){
+ const wheel=$('wheel');
+ if(!wheel||pointerActive) return;
+ // Start if press is on the wheel area
+ const r=wheel.getBoundingClientRect();
+ if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom) return;
+ e.preventDefault();
+ pointerActive=true; pointerId=e.pointerId; dragged=false;
+ startPoint={x:e.clientX,y:e.clientY};
+ try{ wheel.setPointerCapture(e.pointerId); }catch{}
+ try{ haptic('prime'); }catch{}
+ const idx=letterIndexAtClient(e.clientX, e.clientY);
+ if(idx!=null) selectLetter(idx);
+}
+function handleMove(e){
+ if(!pointerActive||e.pointerId!==pointerId) return;
+ const dx=e.clientX-startPoint.x, dy=e.clientY-startPoint.y;
+ if(Math.hypot(dx,dy)>8) dragged=true;
+ try{ FX.swirlFromEvent(e); }catch(err){}
+ const idx=letterIndexAtClient(e.clientX, e.clientY);
+ if(idx!=null) selectLetter(idx);
+}
+function handleUp(e){
+ if(!pointerActive||e.pointerId!==pointerId) return;
+ try{ FX.lastPX=null; FX.lastPY=null; }catch(err){}
+ const shouldSubmit=e.type==='pointerup' && picked.length>=2;
+ pointerActive=false; pointerId=null; startPoint=null;
+ if(shouldSubmit){
+  // Haptic tied to the gesture end (more reliable on Android)
+  try{ if(picked.length>=3) haptic('light'); }catch(err){}
+  submit();
+ } else clearSelection();
+}
 
 const STAGES=[['Meadow','meadow'],['Field','field'],['Moonlit Mountain Forest','moonlit-forest'],['Waterfall','waterfall'],['Autumn Grove','autumn-grove'],['Crystal Lake','crystal-lake'],['Misty Highlands','misty-highlands'],['Sunset Valley','sunset-valley']];
 function stageForLevel(n){
@@ -1095,49 +1174,32 @@ function devAutoSolve(){
 }
 
 const CHANGELOG = [
- {v:'3.5.16', items:[
-  'Home Words found is now Stage → Level → words, so definitions load only for the level you open (much faster with large progress).'
+ {v:'3.5.26', items:[
+  'Wheel highlight tracks the letter under your finger (fixed off-by-one from SVG child indexing).',
+  'Swipe path between selected letters restored.',
+  'Crossword board and level-complete panel translucent again.',
+  'Haptic on solve where the browser supports Vibration API (many iPhones do not).',
+  'Features & fixes list shows only the latest 4 versions; README.txt updated.'
  ]},
- {v:'3.5.15', items:[
-  'Version badge forces update via network-first SW + one-time reload when a new build is installed.',
-  'Home Words found list hardened; definitions load without CSS.escape.',
-  'Stricter bonus-word filter: expanded name/place/slang blocklist; online dictionary rejects proper-noun-only entries.',
-  'Stage audio redesigned around real-world themes (birds, wind, water, leaves, owls) instead of pitch-shifted clones.'
+ {v:'3.5.25', items:[
+  'Within each stage, no crossword word appears more than twice.',
+  'Still based on the 3.5.20 level pack (not a full redesign).'
  ]},
- {v:'3.5.14', items:[
-  'In-level Words list shows only words solved on the current level.',
-  'Home “Words found” opens a full log with the level each word was found on (puzzle + bonus).',
-  'Features & fixes list in Sound settings / Game menu.',
-  'Service worker uses network-first for app files so reopening the site loads the latest build without clearing site data; progress stays in localStorage.'
+ {v:'3.5.24', items:[
+  'Restored 3.5.20 level pack (baseline difficulty & structure).',
+  'Removed level themes.',
+  'Kept UI fixes: word lists, min 3 letters, sticky defs, letters label.'
  ]},
- {v:'3.5.13', items:[
-  'README and docs track version + changelog.',
-  'Coin icon and count outlined for visibility on every stage background.',
-  'Audio labels: Music / Sounds; both On by default; prefs saved.',
-  'Unique music and sound effects per stage.'
- ]},
- {v:'3.5.12', items:[
-  'Level select jumps to the chosen level only (no accidental skip).',
-  'Stage picker opens a per-stage level summary before play.',
-  'Testing tools via ?dev=1 (auto-solve, unlock, jump, reset).'
- ]},
- {v:'3.5.11', items:[
-  'Reject acronym, abbreviation, place-name, surname, and slang bonus words.',
-  'Bonus coins: 0 for 2–3 letters, then 1 per letter after 3.',
-  'Larger letter-wheel tiles scaled to avoid overlap.'
- ]},
- {v:'3.5.10', items:[
-  'Definition hint reliability fix.'
- ]},
- {v:'3.4–3.5', items:[
-  'Crossword layouts, swipe wheel, hints, definitions, extras, stages, PWA support.'
+ {v:'3.5.23', items:[
+  'Crossword adjacency cleanup and easier early-level experiments (later rolled toward 3.5.20 baseline).'
  ]}
 ];
 function openChangelog(){
- const body=CHANGELOG.map(block=>
-  `<section class="change-block"><h3>v${esc(block.v)}</h3><ul>${block.items.map(i=>`<li>${esc(i)}</li>`).join('')}</ul></section>`
+ const recent=(CHANGELOG||[]).slice(0,4);
+ const body=recent.map(block=>
+  `<section class="change-block"><h3>v${esc(block.v)}</h3><ul>${(block.items||[]).map(i=>`<li>${esc(i)}</li>`).join('')}</ul></section>`
  ).join('');
- showModal('Features & fixes',`<div class="changelog">${body}</div>`);
+ showModal('Features & fixes',`<div class="changelog">${body||'<p>No notes yet.</p>'}</div>`);
 }
 
 function openSoundSettings(){

@@ -350,6 +350,72 @@ body.stage-sunset-valley #bgMotion{background-image:url('bg-sunset-valley.jpg')}
 .letter{ z-index:2; }
 .selected-clue{ max-height:2.6em; overflow:hidden; line-height:1.3; }
 
+
+/* Translucent crossword + finish modal */
+.board.crossword{
+  background: rgba(16, 40, 34, 0.42) !important;
+  border: 1px solid rgba(255,255,255,0.22) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 10px 28px rgba(0,0,0,0.25);
+}
+.cross-cell{
+  background: rgba(241, 216, 159, 0.72) !important;
+  border: 1px solid rgba(255,255,255,0.28) !important;
+}
+.cross-cell.cross-solved{
+  background: rgba(155, 204, 160, 0.78) !important;
+}
+.cross-cell.cross-revealed{
+  background: rgba(244, 215, 139, 0.82) !important;
+}
+.level-finish{
+  background: transparent;
+}
+.modal{
+  background: rgba(26, 59, 51, 0.82) !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255,255,255,0.28) !important;
+}
+.changelog{ text-align:left; max-height:55vh; overflow:auto; }
+.changelog-block{ margin:0 0 14px; }
+.changelog-block h3{ color:var(--gold); margin:0 0 6px; font-size:15px; }
+.changelog-block ul{ margin:0; padding-left:18px; }
+.changelog-block li{ margin:4px 0; color:var(--cream); font-size:13px; line-height:1.35; }
+
+
+/* Translucent panels over photo backgrounds */
+.board.crossword{
+  background: rgba(22, 48, 42, 0.72) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.18);
+}
+.cross-cell{
+  background: rgba(255, 240, 201, 0.82) !important;
+}
+.cross-cell.cross-solved{
+  background: rgba(185, 226, 183, 0.88) !important;
+}
+.cross-cell.cross-revealed{
+  background: rgba(248, 216, 143, 0.9) !important;
+}
+.modal{
+  background: rgba(26, 59, 51, 0.82) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.22);
+}
+.level-finish .stats>div{
+  background: rgba(255,255,255,0.12) !important;
+}
+.wheel{ position: relative; }
+.wheel-path{ z-index: 3 !important; }
+.letter.selected{
+  box-shadow: 0 0 0 2px #f3c66a, 0 4px 0 #507d59, 0 8px 15px #06171355 !important;
+}
+
 </style>
 </head>
 <body>
@@ -365,7 +431,7 @@ body.stage-sunset-valley #bgMotion{background-image:url('bg-sunset-valley.jpg')}
       <h1>Wordgrove</h1>
       <p>Swipe letters, discover words, and watch your vocabulary grow.</p>
     </div>
-    <div class="app-version" id="homeVersion">Wordgrove v3.5.25</div>
+    <div class="app-version" id="homeVersion">Wordgrove v3.5.26</div>
     <div class="home-stats">
       <div class="stat-card"><strong id="homeLevel">1</strong><span>Current level</span></div>
       <div class="stat-card"><strong id="homeCoins">50</strong><span>Coins</span></div>
