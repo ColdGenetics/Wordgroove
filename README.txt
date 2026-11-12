@@ -1,7 +1,10 @@
-Wordgrove 3.5.26
+Wordgrove 3.5.27
 ================
 
 Live: https://coldgenetics.github.io/Wordgrove/
+
+3.5.27
+- Tighter wheel hit detection (less accidental letter picks).
 
 3.5.26
 - Wheel highlight matches the letter under your finger.

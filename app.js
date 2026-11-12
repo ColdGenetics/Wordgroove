@@ -1,4 +1,4 @@
-const APP_VERSION = '3.5.26';
+const APP_VERSION = '3.5.27';
 const $ = id => document.getElementById(id);
 const SAVE_KEY = 'wordgrove-v4-save';
 const LETTER_HINT_COST = 25, DEFINITION_HINT_COST = 15, DOUBLE_HINT_COST = 40;
@@ -363,25 +363,39 @@ function wheelCenter(){
  const rect=wheel.getBoundingClientRect();
  return { wheel, rect, cx: rect.left + rect.width/2, cy: rect.top + rect.height/2 };
 }
-/** Map pointer to nearest letter index using angle (avoids off-by-one from elementFromPoint). */
+/**
+ * Pick a letter only when the finger is clearly on that tile —
+ * not merely near it or in the gap between tiles.
+ */
 function letterIndexAtClient(clientX, clientY){
  const n=rack.length;
  if(n<1) return null;
- const c=wheelCenter();
- if(!c) return null;
- const dx=clientX - c.cx, dy=clientY - c.cy;
- const dist=Math.hypot(dx,dy);
- const maxR=Math.min(c.rect.width,c.rect.height)*0.58;
- // Allow near-center presses so short swipes still register
- if(dist>maxR) return null;
- // Same convention as drawWheel: angle = -PI/2 + i*2PI/n (i=0 at top, increases clockwise on screen)
- const ang=Math.atan2(dy, dx);
- const a0=-Math.PI/2;
- let t=((ang - a0) % (2*Math.PI) + 2*Math.PI) % (2*Math.PI);
- const step=2*Math.PI/n;
- let i=Math.floor((t + step/2) / step) % n;
- if(i<0) i+=n;
- return i;
+ const wheel=$('wheel');
+ if(!wheel) return null;
+ const letters=[...wheel.querySelectorAll('.letter')];
+ if(!letters.length) return null;
+
+ // Hit radius scales with tile size; tighter than full tile so edge grazes don't count
+ let best=null, bestD=Infinity, second=Infinity;
+ for(const b of letters){
+  const r=b.getBoundingClientRect();
+  const lx=r.left + r.width/2;
+  const ly=r.top + r.height/2;
+  const d=Math.hypot(clientX-lx, clientY-ly);
+  // ~42% of tile size — must be well inside the letter circle
+  const hitR=Math.min(r.width, r.height) * 0.42;
+  if(d<=hitR && d<bestD){
+   second=bestD;
+   bestD=d;
+   best=+b.dataset.index;
+  } else if(d<second){
+   second=d;
+  }
+ }
+ if(best==null) return null;
+ // If two letters are almost equally close, require a clearer winner (gap swipe)
+ if(second < Infinity && second - bestD < 4) return null;
+ return best;
 }
 function drawWheel(){
  const wheel=$('wheel');
@@ -1174,6 +1188,9 @@ function devAutoSolve(){
 }
 
 const CHANGELOG = [
+ {v:'3.5.27', items:[
+  'Tighter letter-wheel hitboxes — only selects a letter when the finger is clearly on it, not when brushing past.'
+ ]},
  {v:'3.5.26', items:[
   'Wheel highlight tracks the letter under your finger (fixed off-by-one from SVG child indexing).',
   'Swipe path between selected letters restored.',
@@ -1189,9 +1206,6 @@ const CHANGELOG = [
   'Restored 3.5.20 level pack (baseline difficulty & structure).',
   'Removed level themes.',
   'Kept UI fixes: word lists, min 3 letters, sticky defs, letters label.'
- ]},
- {v:'3.5.23', items:[
-  'Crossword adjacency cleanup and easier early-level experiments (later rolled toward 3.5.20 baseline).'
  ]}
 ];
 function openChangelog(){
