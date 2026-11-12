@@ -1,4 +1,4 @@
-const APP_VERSION = '3.5.20';
+const APP_VERSION = '3.5.21';
 const $ = id => document.getElementById(id);
 const SAVE_KEY = 'wordgrove-v4-save';
 const LETTER_HINT_COST = 25, DEFINITION_HINT_COST = 15, DOUBLE_HINT_COST = 40;
@@ -125,7 +125,7 @@ function definitionLooksProper(data){
   }catch{ return false; }
 }
 
-let levels=[], dictionary=new Set(), definitions={}, level=0, rack=[], picked=[], solved=new Set(), revealed={}, extras=new Set(), selectedWord=null;
+let levels=[], dictionary=new Set(), definitions={}, level=0, rack=[], picked=[], solved=new Set(), revealed={}, extras=new Set(), selectedWord=null, hintDefs={};
 let toastTimer, pointerActive=false, pointerId=null, dragged=false, startPoint=null, audioCtx=null, musicTimer=null, musicOn=true, effectsOn=true, revealMode=false, audioWasPlaying=false, completionShown=false, wheelObserver=null, boardObserver=null;
 (function loadAudioPrefs(){
  try{
@@ -139,12 +139,13 @@ let toastTimer, pointerActive=false, pointerId=null, dragged=false, startPoint=n
 })();
 function saveAudioPrefs(){try{localStorage.setItem('wordgrove-audio',JSON.stringify({musicOn,effectsOn}))}catch{}}
 
-const freshState=()=>({currentLevel:0,unlockedLevel:0,coins:50,solvedByLevel:{},revealedByLevel:{},extrasByLevel:{}});
+const freshState=()=>({currentLevel:0,unlockedLevel:0,coins:50,solvedByLevel:{},revealedByLevel:{},extrasByLevel:{},hintDefsByLevel:{}});
 let state=loadState();
 function loadState(){try{const p=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');return p?{...freshState(),...p,coins:Math.max(0,+p.coins||0)}:freshState()}catch{return freshState()}}
 function saveState(){try{localStorage.setItem(SAVE_KEY,JSON.stringify(state))}catch{}}
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function say(msg){$('toast').textContent=msg;$('toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('show'),1700)}
+function haptic(kind='light'){try{if(navigator.vibrate){if(kind==='solve')navigator.vibrate([12,30,12]);else if(kind==='level')navigator.vibrate([18,40,18,40,24]);else navigator.vibrate(10)}}catch{}}
 function currentWord(){return picked.map(i=>rack[i]).join('')}
 function levelNo(){return Math.min(Math.max(state.currentLevel,state.unlockedLevel),levels.length-1)+1}
 function updateCoins(){$('homeCoins').textContent=state.coins;$('gameCoins').textContent=state.coins}
@@ -179,17 +180,19 @@ function startGame(){
  const resume=clampLevel(state.currentLevel);
  goToLevel(resume,{resumeNextIncomplete:true});
 }
-function persistLevel(){state.solvedByLevel[level]=[...solved];state.revealedByLevel[level]=revealed;state.extrasByLevel[level]=[...extras];state.currentLevel=level;saveState()}
+function persistLevel(){state.solvedByLevel[level]=[...solved];state.revealedByLevel[level]=revealed;state.extrasByLevel[level]=[...extras];state.hintDefsByLevel=state.hintDefsByLevel||{};state.hintDefsByLevel[level]={...hintDefs};state.currentLevel=level;saveState()}
 function renderGame(){
  const data=levels[level]; if(!data)return;
- completionShown=false; revealMode=false; rack=data.letters.slice(); picked=[]; solved=new Set(state.solvedByLevel[level]||[]); revealed=state.revealedByLevel[level]||{}; extras=new Set(state.extrasByLevel[level]||[]); selectedWord=null;
+ completionShown=false; revealMode=false; rack=data.letters.slice(); picked=[]; solved=new Set(state.solvedByLevel[level]||[]); revealed=state.revealedByLevel[level]||{}; extras=new Set(state.extrasByLevel[level]||[]); selectedWord=null; hintDefs=(state.hintDefsByLevel&&state.hintDefsByLevel[level])?{...state.hintDefsByLevel[level]}:{};
  const stage=stageForLevel(level);
- $('levelname').textContent=`${stage.name} · ${level+1}`;
+ const themeName=data.theme||'';
+ $('levelname').textContent=themeName?`${stage.name} · ${level+1}`:`${stage.name} · ${level+1}`;
+ if(themeName){ setTimeout(()=>{ if(!$('gameScreen').hidden) say(`Theme: ${themeName}`); }, 350); }
  document.body.dataset.stage=stage.key;
  document.body.className=`stage-${stage.key} in-game`;
  try{ FX.setStage(stage.key); }catch(e){}
  if(typeof restartMusicForStage==='function') restartMusicForStage();
- $('levelsub').textContent=`${rack.length} tiles · ${data.words.length} words`;
+ $('levelsub').textContent=`${rack.length} letters · ${data.words.length} words`;
  if($('status')) $('status').textContent=`${solved.size} / ${data.words.length} words`;
  $('current').textContent='';
  const board=$('board'), wheel=$('wheel');
@@ -333,47 +336,96 @@ function selectCrosswordCell(x,y){
  selectedWord=next.word;
  renderCrossword();
 }
-function updateSelectedWord(){const w=selectedWord;$('selectedClue').textContent=revealMode?'Choose a letter square to reveal':w?`Selected word · ${w.length} letters`:'Tap a crossword word';}
+function updateSelectedWord(){
+ const w=selectedWord;
+ const clue=$('selectedClue');
+ if(!clue) return;
+ if(revealMode){ clue.textContent='Choose a letter square to reveal'; return; }
+ if(!w){ clue.textContent='Tap a crossword word'; return; }
+ const saved=hintDefs[w];
+ if(saved){
+  const short=String(saved).length>90?String(saved).slice(0,90)+'…':String(saved);
+  clue.textContent=`${w.length} letters · ${short}`;
+ } else {
+  clue.textContent=`Selected word · ${w.length} letters`;
+ }
+}
 function drawWheel(){
  const wheel=$('wheel');
- if(!$('gameScreen') || $('gameScreen').hidden || !rack.length) return;
+ if(!wheel) return;
  const rect=wheel.getBoundingClientRect();
- if(rect.width < 40 || rect.height < 40){
-  // Not laid out yet — retry
+ if(rect.width<40 || rect.height<40){
   requestAnimationFrame(drawWheel);
   return;
  }
  wheel.replaceChildren();
- wheel.style.visibility='visible';
- wheel.style.opacity='1';
+ // Path layer for swipe trail
+ const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+ svg.setAttribute('class','wheel-path');
+ svg.setAttribute('width','100%');
+ svg.setAttribute('height','100%');
+ svg.style.cssText='position:absolute;inset:0;pointer-events:none;overflow:visible;z-index:1';
+ const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+ path.setAttribute('id','wheelPathLine');
+ path.setAttribute('fill','none');
+ path.setAttribute('stroke','#f3c66a');
+ path.setAttribute('stroke-width','3.5');
+ path.setAttribute('stroke-linecap','round');
+ path.setAttribute('stroke-linejoin','round');
+ path.setAttribute('opacity','0.9');
+ svg.appendChild(path);
+ wheel.appendChild(svg);
+
  const n=rack.length;
- const size=Math.min(rect.width, rect.height);
- // Radius leaves a margin so larger tiles never overlap; scale by letter count
- const tileScale = n<=5 ? 0.30 : n<=6 ? 0.27 : n<=7 ? 0.24 : n<=8 ? 0.22 : 0.20;
- const tilePx = Math.max(36, Math.min(64, size * tileScale));
- const gapFactor = n<=5 ? 0.42 : n<=6 ? 0.40 : n<=7 ? 0.38 : n<=8 ? 0.36 : 0.34;
- const radius = size * gapFactor;
+ if(!n) return;
+ // Radius leaves a margin so larger tiles never overlap
+ const gapFactor = n<=4?0.72:n===5?0.64:n===6?0.58:0.52;
+ const tilePx = Math.max(36, Math.min(rect.width,rect.height) * (n<=4?0.28:n===5?0.24:n===6?0.21:0.18));
+ const radius = Math.min(rect.width,rect.height)/2 - tilePx/2 - 4;
  for(let i=0;i<n;i++){
   const b=document.createElement('button');
   b.type='button';
   b.className='letter' + (picked.includes(i) ? ' selected' : '');
   b.textContent=rack[i].toUpperCase();
   const angle=-Math.PI/2 + i*2*Math.PI/n;
-  b.style.left=`${50 + Math.cos(angle)*radius/rect.width*100}%`;
-  b.style.top=`${50 + Math.sin(angle)*radius/rect.height*100}%`;
+  const cx = 50 + Math.cos(angle)*radius/rect.width*100;
+  const cy = 50 + Math.sin(angle)*radius/rect.height*100;
+  b.style.left=`${cx}%`;
+  b.style.top=`${cy}%`;
   b.style.width=`${tilePx}px`;
   b.style.height=`${tilePx}px`;
   b.style.fontSize=`${Math.round(tilePx*0.42)}px`;
   b.dataset.index=i;
-  // Ensure letters are painted even if CSS is slow
+  b.dataset.cx=String(cx);
+  b.dataset.cy=String(cy);
   b.style.visibility='visible';
   b.style.opacity='1';
+  b.style.zIndex='2';
   wheel.append(b);
  }
+ updateWheelPath();
 }
-function selectLetter(i){if(!Number.isInteger(i)||picked.includes(i))return;picked.push(i);playEffect('letter');updateCurrent()}
+function updateWheelPath(){
+ const path=$('wheelPathLine');
+ const wheel=$('wheel');
+ if(!path||!wheel) return;
+ if(picked.length<1){ path.setAttribute('d',''); return; }
+ const pts=[];
+ for(const i of picked){
+  const b=[...wheel.querySelectorAll('.letter')].find(el=>+el.dataset.index===i);
+  if(!b) continue;
+  const x=parseFloat(b.dataset.cx);
+  const y=parseFloat(b.dataset.cy);
+  if(Number.isFinite(x)&&Number.isFinite(y)) pts.push([x,y]);
+ }
+ if(!pts.length){ path.setAttribute('d',''); return; }
+ let d=`M ${pts[0][0]}% ${pts[0][1]}%`;
+ for(let i=1;i<pts.length;i++) d+=` L ${pts[i][0]}% ${pts[i][1]}%`;
+ path.setAttribute('d', d);
+}
+function selectLetter(i){if(!Number.isInteger(i)||picked.includes(i))return;picked.push(i);playEffect('letter');updateCurrent();try{updateWheelPath()}catch(e){}}
 function updateCurrent(){$('current').textContent=currentWord().toUpperCase();[...$('wheel').children].forEach((b,i)=>b.classList.toggle('selected',picked.includes(i)))}
-function clearSelection(){picked=[];updateCurrent()}
+function clearSelection(){picked=[];updateCurrent();try{updateWheelPath()}catch(e){}}
 function coinRewardForExtra(word){const len=String(word).length;return len<=3?0:len-3}
 function canMakeFromRack(word){const available={};for(const c of rack)available[c]=(available[c]||0)+1;for(const c of word){if(!available[c])return false;available[c]--}return true}
 async function lookupEnglishWord(word){
@@ -415,7 +467,7 @@ async function lookupEnglishWord(word){
 async function submit(){
  const w=currentWord().toLowerCase();
  try{
-  if(w.length<2){ say('Swipe at least two letters'); return; }
+  if(w.length<3){ say('Words need at least 3 letters'); return; }
   if(!canMakeFromRack(w)){ say('Those letters are not available'); return; }
   if(levels[level].words.includes(w)){
    if(solved.has(w)){ say('Already found'); return; }
@@ -423,7 +475,7 @@ async function submit(){
    return;
   }
   // Local bonus list first
-  let okBonus = (w.length===2 && TWO_LETTER_WORDS.has(w)) || (w.length>=3 && dictionary.has(w));
+  let okBonus = (w.length>=3 && dictionary.has(w));
   // If missing locally, try online dictionary (covers gaps like "tan")
   if(!okBonus && w.length>=3){
    say('Checking word…');
@@ -485,7 +537,7 @@ function autoCompleteRevealedWords(){
   }
  }
 }
-function solveWord(w,reward=true){
+function solveWord(w,reward=true){ try{haptic('solve')}catch(e){}
  if(solved.has(w)||completionShown) return;
  solved.add(w);
  if(reward) state.coins+=WORD_REWARD;
@@ -512,7 +564,7 @@ function solveWord(w,reward=true){
   if(!completionShown) say(`+${WORD_REWARD} coins · Well done!`);
  }
 }
-function finishLevel(){try{FX.burst('level')}catch(e){}if(completionShown||solved.size<levels[level].words.length)return;completionShown=true;const final=level===levels.length-1;const wordCoins=solved.size*WORD_REWARD;const bonusCoins=[...extras].reduce((n,w)=>n+coinRewardForExtra(w),0);state.coins+=LEVEL_REWARD;state.unlockedLevel=Math.max(state.unlockedLevel,Math.min(level+1,levels.length-1));persistLevel();updateCoins();const points=wordCoins+LEVEL_REWARD+bonusCoins;$('modal').innerHTML=`<div class="level-finish"><div class="finish-leaf">✦</div><h2>${final?'All levels complete!':'Level complete!'}</h2><p>Beautifully done. The next part of your adventure awaits.</p><div class="stats"><div><strong>+${points}</strong><span>POINTS GAINED</span></div><div><strong>${extras.size}</strong><span>BONUS WORDS</span></div></div><p class="finish-detail">${wordCoins} word points · ${LEVEL_REWARD} level bonus${bonusCoins?` · ${bonusCoins} bonus-word coins`:''}</p><button class="action primary" id="next">${final?'Return to menu':`Continue to ${stageForLevel(level+1).name} · ${level+2} →`}</button></div>`;$('overlay').classList.add('show');$('next').onclick=()=>{$('overlay').classList.remove('show');if(final){showHome();return}state.currentLevel=Math.min(level+1,levels.length-1);saveState();level=state.currentLevel;renderGame()}}
+function finishLevel(){try{FX.burst('level');haptic('level')}catch(e){}if(completionShown||solved.size<levels[level].words.length)return;completionShown=true;const final=level===levels.length-1;const wordCoins=solved.size*WORD_REWARD;const bonusCoins=[...extras].reduce((n,w)=>n+coinRewardForExtra(w),0);state.coins+=LEVEL_REWARD;state.unlockedLevel=Math.max(state.unlockedLevel,Math.min(level+1,levels.length-1));persistLevel();updateCoins();const points=wordCoins+LEVEL_REWARD+bonusCoins;$('modal').innerHTML=`<div class="level-finish"><div class="finish-leaf">✦</div><h2>${final?'All levels complete!':'Level complete!'}</h2><p>Beautifully done. The next part of your adventure awaits.</p><div class="stats"><div><strong>+${points}</strong><span>POINTS GAINED</span></div><div><strong>${extras.size}</strong><span>BONUS WORDS</span></div></div><p class="finish-detail">${wordCoins} word points · ${LEVEL_REWARD} level bonus${bonusCoins?` · ${bonusCoins} bonus-word coins`:''}</p><button class="action primary" id="next">${final?'Return to menu':`Continue to ${stageForLevel(level+1).name} · ${level+2} →`}</button></div>`;$('overlay').classList.add('show');$('next').onclick=()=>{$('overlay').classList.remove('show');if(final){showHome();return}state.currentLevel=Math.min(level+1,levels.length-1);saveState();level=state.currentLevel;renderGame()}}
 async function getDefinition(word){
  const key=String(word).toLowerCase();
  if(definitions[key]){
@@ -592,6 +644,31 @@ async function getDefinition(word){
 }
 
 /** Words solved on the current level only (in-game Words button). */
+
+async function showListModal(title,words,subtitle,opts={}){
+ const list=words.length
+  ? words.map(w=>`<article class="word-definition" data-word="${esc(w)}"><strong>${esc(String(w).toUpperCase())}</strong><span>Loading definition…</span></article>`).join('')
+  : '<p>No words yet. Keep playing!</p>';
+ $('modal').innerHTML=`<h2>${esc(title)}</h2><p class="stage-summary">${esc(subtitle||'')}</p><div class="word-list" id="wordListBody">${list}</div><button class="action primary" id="closemodal">Close</button><div class="app-version">Wordgrove v${APP_VERSION}</div>`;
+ $('overlay').classList.add('show');
+ const close=()=>{$('overlay').classList.remove('show')};
+ $('closemodal').onclick=close;
+ // Also allow tapping backdrop
+ $('overlay').onclick=(ev)=>{ if(ev.target===$('overlay')) close(); };
+ const body=$('wordListBody');
+ if(!words.length) return;
+ await Promise.all(words.map(async w=>{
+  try{
+   const def=await getDefinition(w);
+   const row=[...body.querySelectorAll('[data-word]')].find(el=>el.getAttribute('data-word')===w);
+   if(row) row.querySelector('span').textContent=Array.isArray(def)?def.join(' · '):String(def||'');
+  }catch{
+   const row=[...body.querySelectorAll('[data-word]')].find(el=>el.getAttribute('data-word')===w);
+   if(row) row.querySelector('span').textContent='Definition unavailable';
+  }
+ }));
+}
+
 function openWordList(){
  const words=[...solved].sort();
  showListModal(
@@ -799,10 +876,13 @@ async function definitionHint(){
   return;
  }
  state.coins-=DEFINITION_HINT_COST;
+ const text=defs.map(d=>String(d)).join(' · ');
+ hintDefs[w]=text;
  updateCoins(); persistLevel();
  playEffect('success');
  const body=defs.map((d,i)=>`<p class="def-line"><strong>${i+1}.</strong> ${esc(d)}</p>`).join('');
- showModal('Definition hint', body);
+ showModal('Definition hint', body + '<p class="stage-summary">This definition will show again when you select the word.</p>');
+ updateSelectedWord();
 }
 function revealOne(){
  if(!selectedWord){
