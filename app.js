@@ -1,4 +1,4 @@
-const APP_VERSION = '3.5.27';
+const APP_VERSION = '3.5.29';
 const $ = id => document.getElementById(id);
 const SAVE_KEY = 'wordgrove-v4-save';
 const LETTER_HINT_COST = 25, DEFINITION_HINT_COST = 15, DOUBLE_HINT_COST = 40;
@@ -342,6 +342,10 @@ function selectCrosswordCell(x,y){
  const next=entries.find(v=>!solved.has(v.word))||entries[0];
  selectedWord=next.word;
  renderCrossword();
+ if(hintDefs[selectedWord] && !solved.has(selectedWord)){
+  const short=String(hintDefs[selectedWord]);
+  say(short.length>100?short.slice(0,100)+'…':short);
+ }
 }
 function updateSelectedWord(){
  const w=selectedWord;
@@ -919,6 +923,15 @@ async function definitionHint(){
  const w=selectedWord;
  if(!w){ say('Select a word in the crossword first'); return; }
  if(solved.has(w)){ say('That word is already solved'); return; }
+ // Already unlocked this definition on this level — show free, never re-charge
+ if(hintDefs[w]){
+  playEffect('button');
+  const parts=String(hintDefs[w]).split(' · ').filter(Boolean);
+  const body=parts.map((d,i)=>`<p class="def-line"><strong>${i+1}.</strong> ${esc(d)}</p>`).join('');
+  showModal('Definition hint', body + '<p class="stage-summary">Saved for this level · free to view again.</p>');
+  updateSelectedWord();
+  return;
+ }
  if(state.coins<DEFINITION_HINT_COST){ say(`You need ${DEFINITION_HINT_COST} coins`); return; }
  playEffect('button');
  say('Looking up definition…');
@@ -929,7 +942,6 @@ async function definitionHint(){
   showModal('Definition hint', '<p class="def-line">Could not load a definition. Please try again.</p>');
   return;
  }
- // Treat the soft-fail messages from getDefinition as failure (don't charge)
  const joined=(defs||[]).join(' ').toLowerCase();
  const failed=!defs || !defs.length || joined.includes('could not be loaded') || joined.includes('not available offline') || joined.includes('no definition saved');
  if(failed){
@@ -942,7 +954,7 @@ async function definitionHint(){
  updateCoins(); persistLevel();
  playEffect('success');
  const body=defs.map((d,i)=>`<p class="def-line"><strong>${i+1}.</strong> ${esc(d)}</p>`).join('');
- showModal('Definition hint', body + '<p class="stage-summary">This definition will show again when you select the word.</p>');
+ showModal('Definition hint', body + '<p class="stage-summary">Saved for this level · select the word again or re-open this hint for free.</p>');
  updateSelectedWord();
 }
 function revealOne(){
@@ -1188,6 +1200,14 @@ function devAutoSolve(){
 }
 
 const CHANGELOG = [
+ {v:'3.5.29', items:[
+  'Scrubbed all crosswords for surnames / proper names; tighter stage word reuse.',
+  'Definition hints are saved per level: re-select or re-open is free and shows the text again.'
+ ]},
+ {v:'3.5.28', items:[
+  'Version badge and Features & fixes stay in sync every release.',
+  'Stronger cache-bust so Settings → Features & fixes shows the latest notes after update.'
+ ]},
  {v:'3.5.27', items:[
   'Tighter letter-wheel hitboxes — only selects a letter when the finger is clearly on it, not when brushing past.'
  ]},
@@ -1195,17 +1215,7 @@ const CHANGELOG = [
   'Wheel highlight tracks the letter under your finger (fixed off-by-one from SVG child indexing).',
   'Swipe path between selected letters restored.',
   'Crossword board and level-complete panel translucent again.',
-  'Haptic on solve where the browser supports Vibration API (many iPhones do not).',
-  'Features & fixes list shows only the latest 4 versions; README.txt updated.'
- ]},
- {v:'3.5.25', items:[
-  'Within each stage, no crossword word appears more than twice.',
-  'Still based on the 3.5.20 level pack (not a full redesign).'
- ]},
- {v:'3.5.24', items:[
-  'Restored 3.5.20 level pack (baseline difficulty & structure).',
-  'Removed level themes.',
-  'Kept UI fixes: word lists, min 3 letters, sticky defs, letters label.'
+  'Haptic on solve where the browser supports Vibration API (many iPhones do not).'
  ]}
 ];
 function openChangelog(){
@@ -1213,7 +1223,9 @@ function openChangelog(){
  const body=recent.map(block=>
   `<section class="change-block"><h3>v${esc(block.v)}</h3><ul>${(block.items||[]).map(i=>`<li>${esc(i)}</li>`).join('')}</ul></section>`
  ).join('');
- showModal('Features & fixes',`<div class="changelog">${body||'<p>No notes yet.</p>'}</div>`);
+ showModal('Features & fixes',
+  `<p class="stage-summary">Current build: v${esc(APP_VERSION)}</p>`+
+  `<div class="changelog">${body||'<p>No notes yet.</p>'}</div>`);
 }
 
 function openSoundSettings(){

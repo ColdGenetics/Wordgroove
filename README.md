@@ -2,7 +2,7 @@
 
 AI-created word puzzle game — swipe letters on a wheel, solve crossword-style boards, earn coins from bonus words, and explore themed stages.
 
-**Current version: 3.5.26**
+**Current version: 3.5.28**
 
 Play: [coldgenetics.github.io/Wordgrove](https://coldgenetics.github.io/Wordgrove/)
 
@@ -20,14 +20,14 @@ Play: [coldgenetics.github.io/Wordgrove](https://coldgenetics.github.io/Wordgrov
 
 ## Changelog
 
-### 3.5.26
+### 3.5.28
 - Letter wheel angle-based selection (fixes off-by-one highlight)
 - Swipe path drawing fixed
 - Translucent crossword cells and level-complete modal restored
 - Haptic feedback on solve (supported devices only)
 - Features list shows latest 4 versions only
 
-### 3.5.25
+### 3.5.28
 - Max 2 uses of any crossword word per stage
 
 

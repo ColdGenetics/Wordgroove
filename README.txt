@@ -1,26 +1,20 @@
-Wordgrove 3.5.27
+Wordgrove 3.5.29
 ================
 
 Live: https://coldgenetics.github.io/Wordgrove/
 
+3.5.29
+- Scrubbed all crosswords for surnames / proper names (0 left).
+- Stage reuse tightened: 3–4 letter words at most once per stage; longer words at most twice.
+- Definition hints saved per level — re-select or re-open is free and shows the text again.
+
+3.5.28
+- Version badge and Features & fixes stay in sync each release.
+
 3.5.27
-- Tighter wheel hit detection (less accidental letter picks).
+- Tighter wheel hit detection.
 
 3.5.26
-- Wheel highlight matches the letter under your finger.
-- Swipe path between letters restored.
-- Crossword board & level-complete panel translucent again.
-- Haptic on solve where the OS/browser supports it (often Android; often not iPhone).
-- Features & fixes list: latest 4 versions only.
-
-3.5.25
-- Max 2 uses of any crossword word per stage (25 levels).
-- Based on the 3.5.20 level pack.
-
-3.5.24
-- Restored 3.5.20 levels as baseline; themes removed.
-
-3.5.23
-- Crossword / early-level experiments (superseded by 3.5.24 baseline).
+- Wheel highlight, swipe path, translucent panels, haptic where supported.
 
 See README.md for fuller project notes.
