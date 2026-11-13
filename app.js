@@ -1,4 +1,4 @@
-const APP_VERSION = '3.5.32';
+const APP_VERSION = '3.5.34';
 const $ = id => document.getElementById(id);
 const SAVE_KEY = 'wordgrove-v4-save';
 const LETTER_HINT_COST = 25, DEFINITION_HINT_COST = 15, DOUBLE_HINT_COST = 40;
@@ -243,26 +243,21 @@ function renderCrossword(){
  const data=levels[level];
  if(!data||$('gameScreen').hidden)return;
  const layout=data.layout, board=$('board');
- // Panel always sized for the largest puzzle in the pack (12×12) so it never stretches per level
- const MAX_CW=12, MAX_CH=12;
- const parentWidth=board.parentElement.clientWidth||$('gameScreen').clientWidth||window.innerWidth||320;
- const gap=3;
- const boardHeightLimit=window.innerHeight<=740?0.30:0.34;
- const panelW=Math.min(parentWidth-8, 360);
- const panelH=Math.min(window.innerHeight*boardHeightLimit, 300);
- // Cell size from MAX grid so every level uses the same cell size
+ // FIXED outer panel every level (large, uses upper screen). Tiles scale to FILL the panel
+ // for this puzzle so early levels stay readable; 12×12 still fits. Box size never changes.
+ const parentWidth=board.parentElement.clientWidth||$('gameScreen').clientWidth||window.innerWidth||360;
+ const gap=3, pad=10;
+ const vh=window.innerHeight||700;
+ const boardHeightLimit = vh<=620 ? 0.40 : vh<=740 ? 0.46 : 0.50;
+ const fixedW=Math.floor(Math.min(parentWidth - 2, 420));
+ const fixedH=Math.floor(Math.max(240, Math.min(vh * boardHeightLimit, 420)));
  let cellSize=Math.floor(Math.min(
-   (panelW - gap*(MAX_CW-1) - 18) / MAX_CW,
-   (panelH - gap*(MAX_CH-1) - 18) / MAX_CH
+   (fixedW - pad*2 - gap*(layout.width-1)) / layout.width,
+   (fixedH - pad*2 - gap*(layout.height-1)) / layout.height
  ));
- if(cellSize < 12 || !isFinite(cellSize)){
-  cellSize = 14;
-  requestAnimationFrame(()=>requestAnimationFrame(renderCrossword));
- }
- const fixedW=Math.floor(cellSize*MAX_CW + gap*(MAX_CW-1) + 18);
- const fixedH=Math.floor(cellSize*MAX_CH + gap*(MAX_CH-1) + 18);
+ if(!isFinite(cellSize) || cellSize < 14) cellSize = 14;
+ cellSize = Math.min(cellSize, 40);
  board.innerHTML='';
- // Fixed outer panel; inner grid only as wide/tall as this puzzle, centered
  board.style.boxSizing='border-box';
  board.style.width=`${fixedW}px`;
  board.style.height=`${fixedH}px`;
@@ -1222,23 +1217,19 @@ function devAutoSolve(){
 }
 
 const CHANGELOG = [
+ {v:'3.5.34', items:[
+  'Large fixed crossword panel using more of the screen; tiles scale to fill the panel so puzzles stay readable.',
+  'Panel outer size stays the same on every level (no stretch, no shrink).'
+ ]},
  {v:'3.5.32', items:[
-  'Crossword panel is fixed to the largest grid size (12×12) so the box never stretches between levels.'
+  'First pass at fixed panel sizing (refined in 3.5.34).'
  ]},
  {v:'3.5.31', items:[
-  'Level completes only after every crossword word is found (no cross-fill auto-finish).',
-  'Removed obscure plant / rare botanical words from puzzles.',
-  'Particles wrap the screen instead of piling at the top.',
-  'Version shown on home + Features & fixes only (not every modal).',
-  'Background less zoomed; crossword panel keeps a stable size.'
+  'Level completes only after every crossword word is found.',
+  'Obscure plant words removed; particles wrap; version only on home + Features.'
  ]},
  {v:'3.5.30', items:[
-  'Difficulty reworked: linear ramp within each stage; rising sawtooth across stages.',
-  'Kept surname scrub and stage word-reuse limits while rebuilding the curve.'
- ]},
- {v:'3.5.29', items:[
-  'Scrubbed all crosswords for surnames / proper names; tighter stage word reuse.',
-  'Definition hints are saved per level: re-select or re-open is free and shows the text again.'
+  'Linear within-stage difficulty; rising sawtooth across stages.'
  ]}
 ];
 function openChangelog(){

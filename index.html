@@ -432,6 +432,21 @@ body.stage-sunset-valley #bgMotion{background-image:url('bg-sunset-valley.jpg')}
   align-content: center !important;
 }
 
+
+/* Fixed board panel: outer size set by JS; no CSS max-height fighting it */
+.board.crossword{
+  box-sizing: border-box !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  flex: 0 0 auto !important;
+  align-self: center !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  justify-content: center !important;
+  align-content: center !important;
+}
+.wheel{ width: min(68vw, 26dvh, 240px) !important; }
+
 </style>
 </head>
 <body>
@@ -447,7 +462,7 @@ body.stage-sunset-valley #bgMotion{background-image:url('bg-sunset-valley.jpg')}
       <h1>Wordgrove</h1>
       <p>Swipe letters, discover words, and watch your vocabulary grow.</p>
     </div>
-    <div class="app-version" id="homeVersion">Wordgrove v3.5.32</div>
+    <div class="app-version" id="homeVersion">Wordgrove v3.5.34</div>
     <div class="home-stats">
       <div class="stat-card"><strong id="homeLevel">1</strong><span>Current level</span></div>
       <div class="stat-card"><strong id="homeCoins">50</strong><span>Coins</span></div>
