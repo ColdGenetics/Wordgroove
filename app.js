@@ -1,4 +1,4 @@
-const APP_VERSION = '3.5.31';
+const APP_VERSION = '3.5.32';
 const $ = id => document.getElementById(id);
 const SAVE_KEY = 'wordgrove-v4-save';
 const LETTER_HINT_COST = 25, DEFINITION_HINT_COST = 15, DOUBLE_HINT_COST = 40;
@@ -243,26 +243,40 @@ function renderCrossword(){
  const data=levels[level];
  if(!data||$('gameScreen').hidden)return;
  const layout=data.layout, board=$('board');
+ // Panel always sized for the largest puzzle in the pack (12×12) so it never stretches per level
+ const MAX_CW=12, MAX_CH=12;
  const parentWidth=board.parentElement.clientWidth||$('gameScreen').clientWidth||window.innerWidth||320;
  const gap=3;
- const boardHeightLimit=window.innerHeight<=740?0.32:0.38;
- let cellSize=Math.max(14, Math.min(
-   (parentWidth - gap*(layout.width-1)) / layout.width,
-   (window.innerHeight * boardHeightLimit - gap*(layout.height-1)) / layout.height
+ const boardHeightLimit=window.innerHeight<=740?0.30:0.34;
+ const panelW=Math.min(parentWidth-8, 360);
+ const panelH=Math.min(window.innerHeight*boardHeightLimit, 300);
+ // Cell size from MAX grid so every level uses the same cell size
+ let cellSize=Math.floor(Math.min(
+   (panelW - gap*(MAX_CW-1) - 18) / MAX_CW,
+   (panelH - gap*(MAX_CH-1) - 18) / MAX_CH
  ));
- // If still absurdly small, force a usable default and retry shortly
- if(cellSize < 14 || !isFinite(cellSize)){
-  cellSize = 18;
+ if(cellSize < 12 || !isFinite(cellSize)){
+  cellSize = 14;
   requestAnimationFrame(()=>requestAnimationFrame(renderCrossword));
  }
+ const fixedW=Math.floor(cellSize*MAX_CW + gap*(MAX_CW-1) + 18);
+ const fixedH=Math.floor(cellSize*MAX_CH + gap*(MAX_CH-1) + 18);
  board.innerHTML='';
- board.style.gridTemplateColumns=`repeat(${layout.width}, minmax(0,1fr))`;
- board.style.gridTemplateRows=`repeat(${layout.height}, minmax(0,1fr))`;
+ // Fixed outer panel; inner grid only as wide/tall as this puzzle, centered
+ board.style.boxSizing='border-box';
+ board.style.width=`${fixedW}px`;
+ board.style.height=`${fixedH}px`;
+ board.style.minWidth=`${fixedW}px`;
+ board.style.minHeight=`${fixedH}px`;
+ board.style.maxWidth=`${fixedW}px`;
+ board.style.maxHeight=`${fixedH}px`;
+ board.style.gridTemplateColumns=`repeat(${layout.width}, ${cellSize}px)`;
+ board.style.gridTemplateRows=`repeat(${layout.height}, ${cellSize}px)`;
+ board.style.justifyContent='center';
+ board.style.alignContent='center';
  board.style.setProperty('--cw', layout.width);
  board.style.setProperty('--ch', layout.height);
- board.style.setProperty('--board-ratio', `${layout.width}/${layout.height}`);
- board.style.width=`${Math.floor(cellSize*layout.width + gap*(layout.width-1))}px`;
- board.style.height=`${Math.floor(cellSize*layout.height + gap*(layout.height-1))}px`;
+ board.style.setProperty('--cell', cellSize+'px');
  board.style.visibility='visible';
  board.style.opacity='1';
 
@@ -1208,6 +1222,9 @@ function devAutoSolve(){
 }
 
 const CHANGELOG = [
+ {v:'3.5.32', items:[
+  'Crossword panel is fixed to the largest grid size (12×12) so the box never stretches between levels.'
+ ]},
  {v:'3.5.31', items:[
   'Level completes only after every crossword word is found (no cross-fill auto-finish).',
   'Removed obscure plant / rare botanical words from puzzles.',
@@ -1222,10 +1239,6 @@ const CHANGELOG = [
  {v:'3.5.29', items:[
   'Scrubbed all crosswords for surnames / proper names; tighter stage word reuse.',
   'Definition hints are saved per level: re-select or re-open is free and shows the text again.'
- ]},
- {v:'3.5.28', items:[
-  'Version badge and Features & fixes stay in sync every release.',
-  'Stronger cache-bust so Settings → Features & fixes shows the latest notes after update.'
  ]}
 ];
 function openChangelog(){

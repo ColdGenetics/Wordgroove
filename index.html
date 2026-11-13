@@ -417,22 +417,19 @@ body.stage-sunset-valley #bgMotion{background-image:url('bg-sunset-valley.jpg')}
 }
 
 
-/* Stable crossword panel size (does not grow/shrink with grid shape) */
+/* Fixed panel = largest crossword footprint (12×12). JS sets exact px; smaller grids center inside. */
 .board.crossword{
-  width: min(92vw, 360px) !important;
-  height: min(34dvh, 280px) !important;
-  min-height: 200px !important;
-  max-height: min(34dvh, 280px) !important;
-  box-sizing: border-box;
+  box-sizing: border-box !important;
   margin-left: auto !important;
   margin-right: auto !important;
-}
-@media(max-height:740px){
-  .board.crossword{
-    height: min(30dvh, 240px) !important;
-    min-height: 160px !important;
-    max-height: min(30dvh, 240px) !important;
-  }
+  flex: 0 0 auto !important;
+  align-self: center !important;
+  /* JS assigns width/height from 12×12 cell math — do not override with dvh stretch */
+  max-width: min(92vw, 360px) !important;
+  max-height: min(34dvh, 300px) !important;
+  overflow: hidden !important;
+  justify-content: center !important;
+  align-content: center !important;
 }
 
 </style>
@@ -450,7 +447,7 @@ body.stage-sunset-valley #bgMotion{background-image:url('bg-sunset-valley.jpg')}
       <h1>Wordgrove</h1>
       <p>Swipe letters, discover words, and watch your vocabulary grow.</p>
     </div>
-    <div class="app-version" id="homeVersion">Wordgrove v3.5.31</div>
+    <div class="app-version" id="homeVersion">Wordgrove v3.5.32</div>
     <div class="home-stats">
       <div class="stat-card"><strong id="homeLevel">1</strong><span>Current level</span></div>
       <div class="stat-card"><strong id="homeCoins">50</strong><span>Coins</span></div>
