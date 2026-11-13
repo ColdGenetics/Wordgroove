@@ -1,4 +1,4 @@
-const APP_VERSION = '3.5.29';
+const APP_VERSION = '3.5.31';
 const $ = id => document.getElementById(id);
 const SAVE_KEY = 'wordgrove-v4-save';
 const LETTER_HINT_COST = 25, DEFINITION_HINT_COST = 15, DOUBLE_HINT_COST = 40;
@@ -161,7 +161,17 @@ function updateCoins(){$('homeCoins').textContent=state.coins;$('gameCoins').tex
 function updateHome(){$('homeLevel').textContent=levelNo().toLocaleString();updateCoins();$('homeWords').textContent=Object.values(state.solvedByLevel).reduce((n,a)=>n+(a||[]).length,0).toLocaleString();const hv=$('homeVersion');if(hv)hv.textContent=`Wordgrove v${APP_VERSION}`;}
 function showHome(){document.body.classList.remove('in-game');const sk=(typeof stageForLevel==='function'&&levels.length)?stageForLevel(state.currentLevel||0).key:'meadow';document.body.dataset.stage=sk;document.body.className=`stage-${sk}`;try{FX.setStage(sk)}catch(e){};$('gameScreen').hidden=true;$('homeScreen').hidden=false;$('overlay').classList.remove('show');updateHome()}
 function clampLevel(n){return Math.max(0,Math.min(Number(n)||0,levels.length-1))}
-function isLevelComplete(n){const words=levels[n]?.words||[];const solvedArr=state.solvedByLevel[n]||[];return words.length>0&&solvedArr.length>=words.length}
+function isLevelComplete(n){
+ const words=levels[n]?.words||[];
+ if(!words.length) return false;
+ const solvedArr=new Set(state.solvedByLevel[n]||[]);
+ return words.every(w=>solvedArr.has(w));
+}
+function levelFullySolved(){
+ const words=levels[level]?.words||[];
+ if(!words.length) return false;
+ return words.every(w=>solved.has(w));
+}
 /** Jump to an explicit level index. Respects unlock unless force=true (dev). */
 function goToLevel(n,{force=false,resumeNextIncomplete=false}={}){
  n=clampLevel(n);
@@ -192,7 +202,16 @@ function startGame(){
 function persistLevel(){state.solvedByLevel[level]=[...solved];state.revealedByLevel[level]=revealed;state.extrasByLevel[level]=[...extras];state.hintDefsByLevel=state.hintDefsByLevel||{};state.hintDefsByLevel[level]={...hintDefs};state.currentLevel=level;saveState()}
 function renderGame(){
  const data=levels[level]; if(!data)return;
- completionShown=false; revealMode=false; rack=data.letters.slice(); picked=[]; solved=new Set(state.solvedByLevel[level]||[]); revealed=state.revealedByLevel[level]||{}; extras=new Set(state.extrasByLevel[level]||[]); selectedWord=null; hintDefs=(state.hintDefsByLevel&&state.hintDefsByLevel[level])?{...state.hintDefsByLevel[level]}:{};
+ completionShown=false; revealMode=false; rack=data.letters.slice(); picked=[]; const validWords=new Set(data.words||[]);
+ solved=new Set((state.solvedByLevel[level]||[]).filter(w=>validWords.has(w)));
+ revealed=state.revealedByLevel[level]||{};
+ // drop revealed keys not in this level
+ for(const k of Object.keys(revealed)){ if(!validWords.has(k)) delete revealed[k]; }
+ extras=new Set((state.extrasByLevel[level]||[]).filter(Boolean));
+ selectedWord=null;
+ hintDefs=(state.hintDefsByLevel&&state.hintDefsByLevel[level])?{...state.hintDefsByLevel[level]}:{};
+ for(const k of Object.keys(hintDefs)){ if(!validWords.has(k)) delete hintDefs[k]; }
+
  const stage=stageForLevel(level);
  $('levelname').textContent=`${stage.name} · ${level+1}`;
  document.body.dataset.stage=stage.key;
@@ -588,48 +607,38 @@ function letterVisibleAt(word, index){
 function autoCompleteRevealedWords(){
  const data=levels[level];
  if(!data||completionShown) return;
- let any=false;
  for(const w of data.words){
   if(solved.has(w)) continue;
+  const have=new Set((revealed[w]||[]).map(Number));
+  // Only auto-solve when every letter was paid-revealed (not merely visible via crossings)
   let full=true;
   for(let i=0;i<w.length;i++){
-   if(!letterVisibleAt(w,i)){ full=false; break; }
+   if(!have.has(i)){ full=false; break; }
   }
   if(full){
    solveWord(w,true);
-   any=true;
    if(completionShown) return;
   }
  }
 }
 function solveWord(w,reward=true){ try{haptic('solve')}catch(e){}
  if(solved.has(w)||completionShown) return;
+ // Only count real puzzle words toward completion
+ const puzzle=levels[level]?.words||[];
+ if(!puzzle.includes(w)) return;
  solved.add(w);
  if(reward) state.coins+=WORD_REWARD;
  persistLevel(); updateCoins();
  playEffect('success');
  try{ FX.burst('solve'); }catch(e){}
- if(solved.size>=levels[level].words.length){
-  renderCrossword();
+ renderCrossword();
+ if(levelFullySolved()){
   finishLevel();
- } else {
-  // Completing a word may auto-fill crossings
-  renderCrossword();
-  // Check other words that may now be fully visible
-  const data=levels[level];
-  for(const other of data.words){
-   if(solved.has(other)||completionShown) continue;
-   let full=true;
-   for(let i=0;i<other.length;i++){
-    if(!letterVisibleAt(other,i)){ full=false; break; }
-   }
-   if(full) solveWord(other,true);
-   if(completionShown) return;
-  }
-  if(!completionShown) say(`+${WORD_REWARD} coins · Well done!`);
+ } else if(reward){
+  say(`+${WORD_REWARD} coins · Well done!`);
  }
 }
-function finishLevel(){try{FX.burst('level');haptic('level')}catch(e){}if(completionShown||solved.size<levels[level].words.length)return;completionShown=true;const final=level===levels.length-1;const wordCoins=solved.size*WORD_REWARD;const bonusCoins=[...extras].reduce((n,w)=>n+coinRewardForExtra(w),0);state.coins+=LEVEL_REWARD;state.unlockedLevel=Math.max(state.unlockedLevel,Math.min(level+1,levels.length-1));persistLevel();updateCoins();const points=wordCoins+LEVEL_REWARD+bonusCoins;$('modal').innerHTML=`<div class="level-finish"><div class="finish-leaf">✦</div><h2>${final?'All levels complete!':'Level complete!'}</h2><p>Beautifully done. The next part of your adventure awaits.</p><div class="stats"><div><strong>+${points}</strong><span>POINTS GAINED</span></div><div><strong>${extras.size}</strong><span>BONUS WORDS</span></div></div><p class="finish-detail">${wordCoins} word points · ${LEVEL_REWARD} level bonus${bonusCoins?` · ${bonusCoins} bonus-word coins`:''}</p><button class="action primary" id="next">${final?'Return to menu':`Continue to ${stageForLevel(level+1).name} · ${level+2} →`}</button></div>`;$('overlay').classList.add('show');$('next').onclick=()=>{$('overlay').classList.remove('show');if(final){showHome();return}state.currentLevel=Math.min(level+1,levels.length-1);saveState();level=state.currentLevel;renderGame()}}
+function finishLevel(){try{FX.burst('level');haptic('level')}catch(e){}if(completionShown||!levelFullySolved())return;completionShown=true;const final=level===levels.length-1;const wordCoins=solved.size*WORD_REWARD;const bonusCoins=[...extras].reduce((n,w)=>n+coinRewardForExtra(w),0);state.coins+=LEVEL_REWARD;state.unlockedLevel=Math.max(state.unlockedLevel,Math.min(level+1,levels.length-1));persistLevel();updateCoins();const points=wordCoins+LEVEL_REWARD+bonusCoins;$('modal').innerHTML=`<div class="level-finish"><div class="finish-leaf">✦</div><h2>${final?'All levels complete!':'Level complete!'}</h2><p>Beautifully done. The next part of your adventure awaits.</p><div class="stats"><div><strong>+${points}</strong><span>POINTS GAINED</span></div><div><strong>${extras.size}</strong><span>BONUS WORDS</span></div></div><p class="finish-detail">${wordCoins} word points · ${LEVEL_REWARD} level bonus${bonusCoins?` · ${bonusCoins} bonus-word coins`:''}</p><button class="action primary" id="next">${final?'Return to menu':`Continue to ${stageForLevel(level+1).name} · ${level+2} →`}</button></div>`;$('overlay').classList.add('show');$('next').onclick=()=>{$('overlay').classList.remove('show');if(final){showHome();return}state.currentLevel=Math.min(level+1,levels.length-1);saveState();level=state.currentLevel;renderGame()}}
 async function getDefinition(word){
  const key=String(word).toLowerCase();
  if(definitions[key]){
@@ -714,7 +723,7 @@ async function showListModal(title,words,subtitle,opts={}){
  const list=words.length
   ? words.map(w=>`<article class="word-definition" data-word="${esc(w)}"><strong>${esc(String(w).toUpperCase())}</strong><span>Loading definition…</span></article>`).join('')
   : '<p>No words yet. Keep playing!</p>';
- $('modal').innerHTML=`<h2>${esc(title)}</h2><p class="stage-summary">${esc(subtitle||'')}</p><div class="word-list" id="wordListBody">${list}</div><button class="action primary" id="closemodal">Close</button><div class="app-version">Wordgrove v${APP_VERSION}</div>`;
+ $('modal').innerHTML=`<h2>${esc(title)}</h2><p class="stage-summary">${esc(subtitle||'')}</p><div class="word-list" id="wordListBody">${list}</div><button class="action primary" id="closemodal">Close</button>`;
  $('overlay').classList.add('show');
  const close=()=>{$('overlay').classList.remove('show')};
  $('closemodal').onclick=close;
@@ -857,8 +866,7 @@ async function openWordLevelDetail(L, byLevel, stageIndex){
   <p class="stage-summary">${puzzle.length} puzzle · ${bonus.length} bonus. Definitions load for this level only.</p>
   <div class="word-list" id="wordListBody">${bodyHtml}</div>
   <button class="action" id="backWordLevels">← ${esc(stage.name)}</button>
-  <button class="action primary" id="closemodal">Close</button>
-  <div class="app-version">Wordgrove v${APP_VERSION}</div>`;
+  <button class="action primary" id="closemodal">Close</button>`;
  $('overlay').classList.add('show');
  $('closemodal').onclick=()=>$('overlay').classList.remove('show');
  $('backWordLevels').onclick=()=>openWordStageLevels(stageIndex, byLevel);
@@ -1003,7 +1011,7 @@ function revealTwo(){
 function openHints(){showModal('Choose a hint',`<div class="hint-options"><button class="action" id="oneHint">Reveal one letter · ${LETTER_HINT_COST} coins</button><button class="action" id="defHint">Show selected word definition · ${DEFINITION_HINT_COST} coins</button><button class="action" id="twoHint">Reveal two random letters · ${DOUBLE_HINT_COST} coins</button></div>`);$('modal').querySelector('#oneHint').onclick=()=>{$('overlay').classList.remove('show');revealOne()};$('modal').querySelector('#defHint').onclick=()=>{$('overlay').classList.remove('show');definitionHint()};$('modal').querySelector('#twoHint').onclick=()=>{$('overlay').classList.remove('show');revealTwo()}}
 function shuffle(){for(let i=rack.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[rack[i],rack[j]]=[rack[j],rack[i]]}picked=[];drawWheel();updateCurrent()}
 function showModal(title,body){
- $('modal').innerHTML=`<h2>${esc(title)}</h2><div class="modal-body">${body}</div><button class="action primary" id="closemodal">Got it</button><div class="app-version">Wordgrove v${APP_VERSION}</div>`;
+ $('modal').innerHTML=`<h2>${esc(title)}</h2><div class="modal-body">${body}</div><button class="action primary" id="closemodal">Got it</button>`;
  $('overlay').classList.add('show');
  $('closemodal').onclick=()=>$('overlay').classList.remove('show');
 }
@@ -1200,6 +1208,17 @@ function devAutoSolve(){
 }
 
 const CHANGELOG = [
+ {v:'3.5.31', items:[
+  'Level completes only after every crossword word is found (no cross-fill auto-finish).',
+  'Removed obscure plant / rare botanical words from puzzles.',
+  'Particles wrap the screen instead of piling at the top.',
+  'Version shown on home + Features & fixes only (not every modal).',
+  'Background less zoomed; crossword panel keeps a stable size.'
+ ]},
+ {v:'3.5.30', items:[
+  'Difficulty reworked: linear ramp within each stage; rising sawtooth across stages.',
+  'Kept surname scrub and stage word-reuse limits while rebuilding the curve.'
+ ]},
  {v:'3.5.29', items:[
   'Scrubbed all crosswords for surnames / proper names; tighter stage word reuse.',
   'Definition hints are saved per level: re-select or re-open is free and shows the text again.'
@@ -1207,15 +1226,6 @@ const CHANGELOG = [
  {v:'3.5.28', items:[
   'Version badge and Features & fixes stay in sync every release.',
   'Stronger cache-bust so Settings → Features & fixes shows the latest notes after update.'
- ]},
- {v:'3.5.27', items:[
-  'Tighter letter-wheel hitboxes — only selects a letter when the finger is clearly on it, not when brushing past.'
- ]},
- {v:'3.5.26', items:[
-  'Wheel highlight tracks the letter under your finger (fixed off-by-one from SVG child indexing).',
-  'Swipe path between selected letters restored.',
-  'Crossword board and level-complete panel translucent again.',
-  'Haptic on solve where the browser supports Vibration API (many iPhones do not).'
  ]}
 ];
 function openChangelog(){
@@ -1720,7 +1730,7 @@ const FX = {
       p.r *= 1.35;
       this.particles.push(p);
     }
-    while(this.particles.length > this.max+24) this.particles.shift();
+    while(this.particles.length > this.max) this.particles.shift();
   },
   frame(t){
     requestAnimationFrame((nt)=>this.frame(nt));
@@ -1732,24 +1742,32 @@ const FX = {
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     ctx.save();
     ctx.scale(dpr, dpr);
-    if(this.particles.length < this.max-4){
+    // Keep a stable count — never flood the top of the screen
+    while(this.particles.length < this.max){
       this.particles.push(this.spawn(false));
+    }
+    while(this.particles.length > this.max){
+      this.particles.pop();
     }
     for(let i=this.particles.length-1; i>=0; i--){
       const p = this.particles[i];
       p.x += p.vx * (dt/16);
       p.y += p.vy * (dt/16);
       p.rot += p.vr;
-      p.vx *= 0.98;
-      p.vy *= 0.995;
-      let dead = (p.y > this.h + 30) || (p.y < -40) || (p.x < -50) || (p.x > this.w + 50);
-      if(dead){
-        this.particles[i] = this.spawn(false);
-        const q = this.particles[i];
-        if(Math.random()<0.7){ q.y = -15; q.x = Math.random()*this.w; }
-        else { q.x = Math.random()<0.5 ? -15 : this.w+15; q.y = Math.random()*this.h*0.7; }
-        continue;
-      }
+      // Stronger damping so impulse/swipes don't fling everything into one corner
+      p.vx *= 0.96;
+      p.vy *= 0.97;
+      // Soft clamp velocity
+      const spd=Math.hypot(p.vx,p.vy);
+      if(spd>2.8){ p.vx*=2.8/spd; p.vy*=2.8/spd; }
+      // Wrap across edges instead of clustering respawns at the top
+      if(p.y > this.h + 20){ p.y = -10; p.x = Math.random()*this.w; p.vx=(Math.random()-0.5)*0.25; }
+      else if(p.y < -20){ p.y = this.h + 10; p.x = Math.random()*this.w; p.vx=(Math.random()-0.5)*0.25; }
+      if(p.x > this.w + 20){ p.x = -10; p.y = Math.random()*this.h; }
+      else if(p.x < -20){ p.x = this.w + 10; p.y = Math.random()*this.h; }
+      // (draw continues below — was formerly `continue` after respawn)
+      if(false){ continue; }
+
       ctx.globalAlpha = Math.max(0.12, Math.min(1, p.a));
       ctx.fillStyle = p.color || '#e8d48a';
       if(p.kind==='leaf'){
